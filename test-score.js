@@ -36,7 +36,7 @@ function refScore(x, y){
 }
 
 // Rings must stay in order and be thick enough to hit with a finger. At the smallest
-// board we ship (320px wide inside a 444-unit viewBox) 1 unit is ~0.72px, so a 24-unit
+// board we ship (320px wide inside a 456-unit viewBox) 1 unit is ~0.72px, so a 24-unit
 // ring is ~17px there and ~44px on a 820px board.
 const MIN_BAND = 24;
 const bands = [
