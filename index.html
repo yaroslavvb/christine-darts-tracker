@@ -43,7 +43,7 @@
   .spacer{flex:1}
   .btn{
     background:var(--panel2);border:1px solid var(--line);border-radius:10px;
-    padding:8px 12px;font-size:14px;font-weight:600;white-space:nowrap;
+    padding:11px 15px;font-size:15px;font-weight:600;white-space:nowrap;
   }
   .btn:active{transform:translateY(1px)}
   .btn:disabled{opacity:.4;cursor:default}
@@ -57,7 +57,7 @@
 
   main{
     display:grid;gap:14px;padding:14px;
-    grid-template-columns:minmax(320px,52vw) minmax(260px,1fr);
+    grid-template-columns:minmax(320px,58vw) minmax(290px,1fr);
     align-items:start;
   }
   @media (max-width:900px){ main{grid-template-columns:1fr} }
@@ -70,9 +70,9 @@
   }
 
   /* ---------- board ---------- */
-  #boardWrap{padding:10px;display:flex;flex-direction:column;align-items:center}
+  #boardWrap{padding:6px;display:flex;flex-direction:column;align-items:center}
   svg#board{
-    width:100%;max-width:min(80vh,700px);height:auto;display:block;
+    width:100%;max-width:min(88vh,820px);height:auto;display:block;
     touch-action:none;cursor:crosshair;
   }
   .hint{color:var(--dim);font-size:13px;text-align:center;margin:6px 2px 2px}
@@ -88,9 +88,9 @@
   .tb-actions{display:flex;gap:8px;margin-left:auto}
   .darts{display:flex;gap:6px}
   .slot{
-    min-width:52px;height:38px;border-radius:9px;border:1px dashed var(--line);
+    min-width:62px;height:46px;border-radius:10px;border:1px dashed var(--line);
     display:flex;align-items:center;justify-content:center;
-    font-weight:750;font-size:15px;color:var(--dim);background:#191c23;
+    font-weight:750;font-size:17px;color:var(--dim);background:#191c23;
   }
   .slot.filled{border-style:solid;border-color:#4a5165;color:var(--text);background:#2b3140}
   .slot .mult{font-size:11px;color:var(--accent);margin-right:3px}
@@ -117,8 +117,8 @@
   }
   .pname:focus{outline:none;border-bottom-color:var(--accent)}
   .px{
-    background:transparent;border:0;color:#6d7688;font-size:17px;line-height:1;
-    padding:2px 4px;border-radius:6px;
+    background:transparent;border:0;color:#6d7688;font-size:20px;line-height:1;
+    padding:4px 9px;border-radius:6px;
   }
   .px:hover{color:var(--red)}
   .ptotal{font-size:30px;font-weight:800;line-height:1;letter-spacing:-.5px}
@@ -128,6 +128,8 @@
   .place{font-size:11.5px;font-weight:800;color:var(--green)}
 
   @media (max-width:620px){
+    main{padding:8px;gap:10px}
+    #boardWrap{padding:3px}
     .ptotal{font-size:26px}
     .ptogo,.place{font-size:10.5px}
     thead th{padding:7px 6px 9px}
@@ -196,8 +198,8 @@
 <main>
   <section class="panel">
     <div id="boardWrap">
-      <svg id="board" viewBox="-210 -210 420 420" aria-label="Dartboard"></svg>
-      <div class="hint">Press &amp; hold to aim with the magnifier — release to score.</div>
+      <svg id="board" viewBox="-222 -222 444 444" aria-label="Dartboard"></svg>
+      <div class="hint">Tap where the dart landed. Hold to check the score before you let go.</div>
     </div>
     <div id="turnbar">
       <div id="whoseTurn"></div>
@@ -236,7 +238,11 @@
 
 /* ============================ dartboard geometry ============================ */
 const SECTORS = [20,1,18,4,13,6,10,15,2,17,3,19,7,16,8,11,14,9,12,5];
-const R = { bull:6.35, outerBull:15.9, trebleIn:99, trebleOut:107, doubleIn:162, doubleOut:170, numbers:186, surround:200 };
+// Deliberately NOT a real board's proportions. A regulation treble ring is 8mm wide —
+// on a tablet that is thinner than a fingertip, so it is unhittable. Every ring here is
+// ~4x thicker than the real thing and the bull is enormous. The rings still sit in the
+// same order at roughly the same fractions of the radius, so it reads as a dartboard.
+const R = { bull:34, outerBull:58, trebleIn:100, trebleOut:132, doubleIn:162, doubleOut:194, numbers:205, surround:216 };
 const C = { black:'#191919', cream:'#efe2c0', red:'#cf2027', green:'#17904b', wire:'#9aa0aa' };
 
 const svg = document.getElementById('board');
@@ -281,7 +287,7 @@ function buildBoard(){
 
   for (let i=0;i<20;i++){
     const [x,y] = pt(R.numbers, i*18);
-    const t = el('text', {x, y, fill:'#e6e9ef', 'font-size':23, 'font-weight':700,
+    const t = el('text', {x, y, fill:'#e6e9ef', 'font-size':21, 'font-weight':700,
                           'text-anchor':'middle', 'dominant-baseline':'central',
                           'font-family':'inherit'}, g);
     t.textContent = SECTORS[i];
@@ -295,13 +301,14 @@ const markerG = el('g', {id:'markers'}, svg);
 
 // magnifier
 const magG = el('g', {id:'mag', display:'none'}, svg);
+const MAG_R = 50, MAG_ZOOM = 2.0, MAG_LIFT = 112;   // loupe radius / zoom / offset above the finger
 const clip = el('clipPath', {id:'magClip', clipPathUnits:'userSpaceOnUse'}, magG);
-const clipC = el('circle', {cx:0, cy:0, r:64}, clip);
+const clipC = el('circle', {cx:0, cy:0, r:MAG_R}, clip);
 const magInnerWrap = el('g', {'clip-path':'url(#magClip)'}, magG);
-const magBg = el('circle', {cx:0, cy:0, r:64, fill:'#101216'}, magInnerWrap);
+const magBg = el('circle', {cx:0, cy:0, r:MAG_R, fill:'#101216'}, magInnerWrap);
 const magInner = el('g', {}, magInnerWrap);
 el('use', {href:'#boardG', 'xlink:href':'#boardG'}, magInner);
-const magRing = el('circle', {cx:0, cy:0, r:64, fill:'none', stroke:'#fff', 'stroke-width':2.5,
+const magRing = el('circle', {cx:0, cy:0, r:MAG_R, fill:'none', stroke:'#fff', 'stroke-width':2.5,
                               'stroke-opacity':.85}, magG);
 const magCrossA = el('line', {stroke:'#fff','stroke-width':1.6,'stroke-opacity':.9}, magG);
 const magCrossB = el('line', {stroke:'#fff','stroke-width':1.6,'stroke-opacity':.9}, magG);
@@ -466,12 +473,12 @@ function toSvg(evt){
 }
 
 function showMag(x, y){
-  const K = 3.2, MR = 64;
+  const K = MAG_ZOOM, MR = MAG_R, LIM = 217;
   // place the loupe above the finger, flip below if too close to the top edge
-  let my = y - 118, mx = x;
-  if (my - MR < -205) my = y + 118;
-  mx = Math.max(-205+MR, Math.min(205-MR, mx));
-  my = Math.max(-205+MR, Math.min(205-MR, my));
+  let my = y - MAG_LIFT, mx = x;
+  if (my - MR < -LIM) my = y + MAG_LIFT;
+  mx = Math.max(-LIM+MR, Math.min(LIM-MR, mx));
+  my = Math.max(-LIM+MR, Math.min(LIM-MR, my));
 
   clipC.setAttribute('cx', mx); clipC.setAttribute('cy', my);
   magBg.setAttribute('cx', mx); magBg.setAttribute('cy', my);
@@ -484,8 +491,8 @@ function showMag(x, y){
 
   const sc = scoreAt(x, y);
   magLabel.textContent = sc.label;
-  const w = Math.max(84, magLabel.textContent.length * 13 + 22);
-  const ly = my - MR - 20;
+  const w = Math.max(92, magLabel.textContent.length * 14 + 24);
+  const ly = my - MR - 22;
   magLabel.setAttribute('x', mx); magLabel.setAttribute('y', ly);
   magLabelBg.setAttribute('x', mx - w/2); magLabelBg.setAttribute('y', ly - 17);
   magLabelBg.setAttribute('width', w); magLabelBg.setAttribute('height', 34);
@@ -514,7 +521,7 @@ function finish(e){
   aiming = false;
   hideMag();
   const {x,y} = toSvg(e);
-  if (Math.hypot(x,y) > 260) return;              // released well off the board: ignore
+  if (Math.hypot(x,y) > 290) return;              // released well off the board: ignore
   const sc = scoreAt(x,y);
   throwDart({short:sc.short, value:sc.value, label:sc.label, x:+x.toFixed(1), y:+y.toFixed(1)});
 }
@@ -528,9 +535,9 @@ function renderMarkers(){
   while (markerG.firstChild) markerG.removeChild(markerG.firstChild);
   S.darts.forEach((d,i)=>{
     if (d.x === undefined) return;
-    el('circle', {cx:d.x, cy:d.y, r:6.5, fill:'#fff', 'fill-opacity':.15,
-                  stroke:'#fff', 'stroke-width':2}, markerG);
-    const t = el('text', {x:d.x, y:d.y, fill:'#fff', 'font-size':9, 'font-weight':800,
+    el('circle', {cx:d.x, cy:d.y, r:9, fill:'#fff', 'fill-opacity':.15,
+                  stroke:'#fff', 'stroke-width':2.5}, markerG);
+    const t = el('text', {x:d.x, y:d.y, fill:'#fff', 'font-size':12, 'font-weight':800,
                           'text-anchor':'middle','dominant-baseline':'central',
                           'font-family':'inherit', 'paint-order':'stroke',
                           stroke:'#000','stroke-width':2}, markerG);
@@ -569,6 +576,9 @@ function renderTurnbar(){
 function renderTable(){
   const t = $('sb');
   t.innerHTML = '';
+  // Columns share the width evenly, but never squeeze below something readable —
+  // past that the scoreboard scrolls sideways instead of mangling names and totals.
+  t.style.minWidth = (38 + S.players.length * 132) + 'px';
   const maxTurns = Math.max(0, ...S.players.map(p=>p.history.length));
   const liveRow = (!S.over && S.players[S.cur]) ? S.players[S.cur].history.length : -1;
   const rows = Math.max(maxTurns, liveRow + 1);

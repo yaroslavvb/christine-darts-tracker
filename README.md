@@ -6,9 +6,17 @@ A tap-the-board darts scorer, built to replace the spiral notebook on the deck a
 
 ## How it works
 
-Throw a dart, then press the spot on the board where it landed. A magnifier pops up above your
-finger with a live readout (`T20 = 60`) so you can nudge to the exact ring before you let go —
-the score is added on release. Three darts and it moves to the next player automatically.
+Throw a dart, then press the spot on the board where it landed. Three darts and it moves to the
+next player automatically.
+
+**The board is deliberately not to scale.** A regulation treble ring is 8mm wide, which on a
+tablet works out thinner than a fingertip — unhittable. Every band here is about four times
+thicker than the real thing and the bull is enormous: on a tablet the bull is ~110px across and
+the treble and double rings are ~50px wide, so they can be hit with a thumb. The rings are still
+in the right order at roughly the right fractions of the radius, so it reads as a dartboard.
+
+If your finger covers the spot anyway, hold instead of tapping: a loupe lifts above your fingertip
+with a live readout (`T20 = 60`) so you can slide to the right ring before letting go.
 
 ## The rules it implements
 
@@ -43,7 +51,8 @@ python3 -m http.server 8765
 ```
 
 `test-score.js` pulls the scoring function straight out of `index.html` and checks it against an
-independent implementation over a dense polar sweep of the board (~120k points):
+independent implementation over a dense polar sweep of the board (~130k points). It also fails if
+any band is drawn too thin to tap:
 
 ```bash
 node test-score.js
