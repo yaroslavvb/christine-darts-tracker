@@ -1,0 +1,756 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>2970 Christine darts</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎯</text></svg>">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#14161a">
+<style>
+  :root{
+    --bg:#14161a;
+    --panel:#1c1f26;
+    --panel2:#232732;
+    --line:#333846;
+    --text:#e9ecf2;
+    --dim:#9aa3b2;
+    --accent:#ffc247;
+    --green:#31c26a;
+    --red:#e0454f;
+    --radius:14px;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;height:100%}
+  body{
+    background:var(--bg);
+    color:var(--text);
+    font:16px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    -webkit-user-select:none;user-select:none;
+    touch-action:manipulation;
+    -webkit-text-size-adjust:100%;
+  }
+  button{font:inherit;color:inherit;cursor:pointer}
+
+  header{
+    display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+    padding:10px 14px;border-bottom:1px solid var(--line);
+    background:linear-gradient(180deg,#1b1f27,#171a21);
+    position:sticky;top:0;z-index:20;
+  }
+  h1{font-size:17px;margin:0;font-weight:650;letter-spacing:.2px;white-space:nowrap}
+  h1 .em{color:var(--accent)}
+  .spacer{flex:1}
+  .btn{
+    background:var(--panel2);border:1px solid var(--line);border-radius:10px;
+    padding:8px 12px;font-size:14px;font-weight:600;white-space:nowrap;
+  }
+  .btn:active{transform:translateY(1px)}
+  .btn:disabled{opacity:.4;cursor:default}
+  .btn.primary{background:var(--accent);color:#20160a;border-color:#e0a92e}
+  .btn.ghost{background:transparent}
+  .btn.danger{color:#ffb3b8}
+  select{
+    background:var(--panel2);border:1px solid var(--line);color:var(--text);
+    border-radius:10px;padding:8px 10px;font-size:14px;font-weight:600;
+  }
+
+  main{
+    display:grid;gap:14px;padding:14px;
+    grid-template-columns:minmax(320px,52vw) minmax(260px,1fr);
+    align-items:start;
+  }
+  @media (max-width:900px){ main{grid-template-columns:1fr} }
+
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden}
+  .panel-h{
+    display:flex;align-items:center;gap:8px;
+    padding:9px 12px;border-bottom:1px solid var(--line);
+    font-size:12px;letter-spacing:.09em;text-transform:uppercase;color:var(--dim);font-weight:700;
+  }
+
+  /* ---------- board ---------- */
+  #boardWrap{padding:10px;display:flex;flex-direction:column;align-items:center}
+  svg#board{
+    width:100%;max-width:min(80vh,700px);height:auto;display:block;
+    touch-action:none;cursor:crosshair;
+  }
+  .hint{color:var(--dim);font-size:13px;text-align:center;margin:6px 2px 2px}
+
+  /* ---------- turn strip ---------- */
+  #turnbar{
+    display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+    padding:10px 12px;border-top:1px solid var(--line);background:var(--panel2);
+  }
+  #whoseTurn{font-weight:750;font-size:16px;display:flex;align-items:baseline;gap:8px;min-width:0}
+  #whoseTurn .nm{color:var(--accent);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:38vw}
+  #whoseTurn .togo{color:var(--dim);font-size:13px;font-weight:600}
+  .tb-actions{display:flex;gap:8px;margin-left:auto}
+  .darts{display:flex;gap:6px}
+  .slot{
+    min-width:52px;height:38px;border-radius:9px;border:1px dashed var(--line);
+    display:flex;align-items:center;justify-content:center;
+    font-weight:750;font-size:15px;color:var(--dim);background:#191c23;
+  }
+  .slot.filled{border-style:solid;border-color:#4a5165;color:var(--text);background:#2b3140}
+  .slot .mult{font-size:11px;color:var(--accent);margin-right:3px}
+
+  /* ---------- scoreboard ---------- */
+  #sbScroll{max-height:calc(100vh - 190px);overflow:auto}
+  table{border-collapse:collapse;width:100%;table-layout:fixed;font-variant-numeric:tabular-nums}
+  th,td{border-bottom:1px solid var(--line);border-right:1px solid var(--line);padding:0}
+  th:last-child,td:last-child{border-right:0}
+  thead th{
+    position:sticky;top:0;z-index:5;background:var(--panel2);
+    padding:8px 8px 10px;vertical-align:top;
+  }
+  th.turncol,td.turncol{
+    width:38px;text-align:center;color:var(--dim);font-size:12px;font-weight:700;
+    background:#191c23;
+  }
+  td.turncol{padding:6px 0}
+  .phead{display:flex;flex-direction:column;gap:4px;align-items:stretch}
+  .phead-top{display:flex;align-items:center;gap:6px}
+  .pname{
+    flex:1;min-width:0;background:transparent;border:0;border-bottom:1px dashed transparent;
+    color:var(--text);font:650 15px/1.2 inherit;padding:2px 0;
+  }
+  .pname:focus{outline:none;border-bottom-color:var(--accent)}
+  .px{
+    background:transparent;border:0;color:#6d7688;font-size:17px;line-height:1;
+    padding:2px 4px;border-radius:6px;
+  }
+  .px:hover{color:var(--red)}
+  .ptotal{font-size:30px;font-weight:800;line-height:1;letter-spacing:-.5px}
+  .ptogo{font-size:11.5px;color:var(--dim);font-weight:600}
+  th.active{box-shadow:inset 0 3px 0 var(--accent)}
+  th.active .ptotal{color:var(--accent)}
+  .place{font-size:11.5px;font-weight:800;color:var(--green)}
+
+  @media (max-width:620px){
+    .ptotal{font-size:26px}
+    .ptogo,.place{font-size:10.5px}
+    thead th{padding:7px 6px 9px}
+  }
+
+  td.cell{padding:5px 8px;vertical-align:top;height:1px}
+  .turncell{display:flex;align-items:baseline;gap:8px}
+  .tscore{
+    font-size:12.5px;font-weight:800;color:var(--dim);min-width:30px;
+  }
+  .tscore.pos{color:var(--green)}
+  .tscore.bust{color:var(--red)}
+  .trun{font-size:19px;font-weight:750;margin-left:auto}
+  .tdarts{font-size:11px;color:#6d7688;letter-spacing:.02em;margin-top:1px;
+          overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .ptotal,.ptogo,.place{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  tr.live td.cell{background:#20242e}
+  .livedots{color:var(--accent);font-weight:800;font-size:13px}
+
+  /* ---------- toast / banner ---------- */
+  #toast{
+    position:fixed;left:50%;bottom:22px;transform:translate(-50%,20px);
+    background:#000d;backdrop-filter:blur(6px);border:1px solid var(--line);
+    padding:10px 18px;border-radius:999px;font-weight:750;font-size:17px;
+    opacity:0;pointer-events:none;transition:.18s;z-index:60;white-space:nowrap;
+  }
+  #toast.show{opacity:1;transform:translate(-50%,0)}
+  #toast.bust{border-color:var(--red);color:#ffb3b8}
+  #toast.win{border-color:var(--green);color:#b6f5cf}
+
+  #banner{
+    display:none;margin:0 14px;padding:12px 14px;border-radius:var(--radius);
+    background:linear-gradient(90deg,#1e3a2a,#1c1f26);border:1px solid #2c6b45;
+  }
+  #banner.on{display:block}
+  #banner h2{margin:0 0 6px;font-size:16px}
+  #banner ol{margin:0;padding-left:20px;color:var(--dim);font-size:14px}
+  #banner b{color:var(--text)}
+
+  details.rules{margin:0 14px 18px;color:var(--dim);font-size:13.5px}
+  details.rules summary{cursor:pointer;color:var(--dim);font-weight:600;padding:6px 0}
+  details.rules ul{margin:4px 0 0;padding-left:18px;line-height:1.6}
+  details.rules code{color:var(--accent)}
+  .past{margin-top:6px}
+  .past div{padding:3px 0;border-bottom:1px solid #23272f}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🎯 2970 Christine <span class="em">darts</span></h1>
+  <div class="spacer"></div>
+  <select id="targetSel" title="Target score">
+    <option value="300">to 300</option>
+    <option value="301">to 301</option>
+    <option value="501">to 501</option>
+    <option value="1000">to 1000</option>
+  </select>
+  <button class="btn" id="addPlayer">+ Player</button>
+  <button class="btn ghost" id="undo">↶ Undo</button>
+  <button class="btn ghost" id="newGame">New game</button>
+</header>
+
+<div id="banner"></div>
+
+<main>
+  <section class="panel">
+    <div id="boardWrap">
+      <svg id="board" viewBox="-210 -210 420 420" aria-label="Dartboard"></svg>
+      <div class="hint">Press &amp; hold to aim with the magnifier — release to score.</div>
+    </div>
+    <div id="turnbar">
+      <div id="whoseTurn"></div>
+      <div class="darts" id="dartSlots"></div>
+      <div class="spacer"></div>
+      <div class="tb-actions">
+        <button class="btn" id="missBtn">Miss (0)</button>
+        <button class="btn" id="endTurn">End turn ▸</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="panel-h"><span>Scoreboard</span><span class="spacer"></span><span id="turnCount"></span></div>
+    <div id="sbScroll"><table id="sb"></table></div>
+  </section>
+</main>
+
+<details class="rules">
+  <summary>Rules &amp; past games</summary>
+  <ul>
+    <li>Everyone counts <b>up</b> from 0 and must land on <code>300</code> exactly.</li>
+    <li>Three darts per turn, then the next player throws.</li>
+    <li>Outer ring = <b>double</b>, inner ring = <b>triple</b>, green bull = <b>25</b>, red bull = <b>50</b>, outside the wire = <b>0</b>.</li>
+    <li>Go over the target and the whole turn is <b>voided</b> — you go back to the score you started the turn with.</li>
+    <li>Everything is stored on this device only; <b>Undo</b> steps back one dart at a time.</li>
+  </ul>
+  <div class="past" id="pastGames"></div>
+</details>
+
+<div id="toast"></div>
+
+<script>
+(function(){
+"use strict";
+
+/* ============================ dartboard geometry ============================ */
+const SECTORS = [20,1,18,4,13,6,10,15,2,17,3,19,7,16,8,11,14,9,12,5];
+const R = { bull:6.35, outerBull:15.9, trebleIn:99, trebleOut:107, doubleIn:162, doubleOut:170, numbers:186, surround:200 };
+const C = { black:'#191919', cream:'#efe2c0', red:'#cf2027', green:'#17904b', wire:'#9aa0aa' };
+
+const svg = document.getElementById('board');
+const SVGNS = 'http://www.w3.org/2000/svg';
+
+function el(name, attrs, parent){
+  const n = document.createElementNS(SVGNS, name);
+  for (const k in attrs) n.setAttribute(k, attrs[k]);
+  if (parent) parent.appendChild(n);
+  return n;
+}
+// angle in degrees measured clockwise from 12 o'clock
+function pt(r, deg){
+  const a = deg * Math.PI/180;
+  return [ +(r*Math.sin(a)).toFixed(3), +(-r*Math.cos(a)).toFixed(3) ];
+}
+function wedge(r0, r1, a0, a1){
+  const [x1,y1]=pt(r1,a0), [x2,y2]=pt(r1,a1), [x3,y3]=pt(r0,a1), [x4,y4]=pt(r0,a0);
+  return `M${x1},${y1}A${r1},${r1} 0 0 1 ${x2},${y2}L${x3},${y3}A${r0},${r0} 0 0 0 ${x4},${y4}Z`;
+}
+
+function buildBoard(){
+  const g = el('g', {id:'boardG'}, svg);
+  el('circle', {cx:0, cy:0, r:R.surround, fill:'#101216'}, g);
+  el('circle', {cx:0, cy:0, r:(R.doubleOut+R.surround)/2, fill:'none', stroke:'#0b0c0f',
+                'stroke-width':R.surround-R.doubleOut}, g);
+
+  for (let i=0;i<20;i++){
+    const a0 = i*18-9, a1 = i*18+9;
+    const dark = (i%2===0);
+    const single = dark ? C.black : C.cream;
+    const ring   = dark ? C.red   : C.green;
+    const mk = (r0,r1,fill)=> el('path', {d:wedge(r0,r1,a0,a1), fill, stroke:C.wire,
+                                          'stroke-width':0.7, 'stroke-opacity':0.55}, g);
+    mk(R.outerBull, R.trebleIn,  single);
+    mk(R.trebleIn,  R.trebleOut, ring);
+    mk(R.trebleOut, R.doubleIn,  single);
+    mk(R.doubleIn,  R.doubleOut, ring);
+  }
+  el('circle', {cx:0, cy:0, r:R.outerBull, fill:C.green, stroke:C.wire, 'stroke-width':0.7, 'stroke-opacity':0.55}, g);
+  el('circle', {cx:0, cy:0, r:R.bull,      fill:C.red,   stroke:C.wire, 'stroke-width':0.7, 'stroke-opacity':0.55}, g);
+
+  for (let i=0;i<20;i++){
+    const [x,y] = pt(R.numbers, i*18);
+    const t = el('text', {x, y, fill:'#e6e9ef', 'font-size':23, 'font-weight':700,
+                          'text-anchor':'middle', 'dominant-baseline':'central',
+                          'font-family':'inherit'}, g);
+    t.textContent = SECTORS[i];
+  }
+  return g;
+}
+buildBoard();
+
+// markers for darts thrown this turn
+const markerG = el('g', {id:'markers'}, svg);
+
+// magnifier
+const magG = el('g', {id:'mag', display:'none'}, svg);
+const clip = el('clipPath', {id:'magClip', clipPathUnits:'userSpaceOnUse'}, magG);
+const clipC = el('circle', {cx:0, cy:0, r:64}, clip);
+const magInnerWrap = el('g', {'clip-path':'url(#magClip)'}, magG);
+const magBg = el('circle', {cx:0, cy:0, r:64, fill:'#101216'}, magInnerWrap);
+const magInner = el('g', {}, magInnerWrap);
+el('use', {href:'#boardG', 'xlink:href':'#boardG'}, magInner);
+const magRing = el('circle', {cx:0, cy:0, r:64, fill:'none', stroke:'#fff', 'stroke-width':2.5,
+                              'stroke-opacity':.85}, magG);
+const magCrossA = el('line', {stroke:'#fff','stroke-width':1.6,'stroke-opacity':.9}, magG);
+const magCrossB = el('line', {stroke:'#fff','stroke-width':1.6,'stroke-opacity':.9}, magG);
+const magLabelBg = el('rect', {rx:9, fill:'#000', 'fill-opacity':.82, stroke:'#fff','stroke-opacity':.35}, magG);
+const magLabel = el('text', {fill:'#fff','font-size':22,'font-weight':800,'text-anchor':'middle',
+                             'dominant-baseline':'central','font-family':'inherit'}, magG);
+const liveDot = el('circle', {r:3.2, fill:'#fff', stroke:'#000', 'stroke-width':1}, magG);
+
+/* ============================ scoring ============================ */
+function scoreAt(x, y){
+  const r = Math.hypot(x, y);
+  if (r <= R.bull)      return {sector:25, mult:2, value:50, label:'BULL 50', short:'BULL'};
+  if (r <= R.outerBull) return {sector:25, mult:1, value:25, label:'25',      short:'25'};
+  if (r >  R.doubleOut) return {sector:0,  mult:0, value:0,  label:'MISS 0',  short:'–'};
+  let a = Math.atan2(x, -y) * 180/Math.PI;
+  if (a < 0) a += 360;
+  const s = SECTORS[Math.floor((a + 9) / 18) % 20];
+  let mult = 1;
+  if (r >= R.trebleIn && r <= R.trebleOut) mult = 3;
+  else if (r >= R.doubleIn) mult = 2;
+  const short = (mult===3?'T':mult===2?'D':'') + s;
+  return {sector:s, mult, value:s*mult, label:`${short} = ${s*mult}`, short};
+}
+
+/* ============================ state ============================ */
+const KEY = 'christine-darts-v1';
+let S = null;
+let undoStack = [];
+
+function newPlayer(name){ return {name, total:0, history:[], place:null}; }
+
+function freshGame(names, target){
+  return {
+    target: target || 300,
+    players: (names && names.length ? names : ['Player 1','Player 2']).map(newPlayer),
+    cur: 0,
+    darts: [],          // {short, value, x, y}
+    over: false,
+    started: new Date().toISOString()
+  };
+}
+
+function load(){
+  try{
+    const raw = localStorage.getItem(KEY);
+    if (raw){
+      const o = JSON.parse(raw);
+      if (o && o.game && Array.isArray(o.game.players)) { S = o.game; return; }
+    }
+  }catch(e){}
+  S = freshGame();
+}
+function save(){
+  try{ localStorage.setItem(KEY, JSON.stringify({game:S})); }catch(e){}
+}
+function pastGames(){
+  try{ return JSON.parse(localStorage.getItem(KEY+'-past') || '[]'); }catch(e){ return []; }
+}
+function archive(){
+  if (!S.players.some(p=>p.place)) return;
+  const list = pastGames();
+  list.unshift({
+    date: new Date().toISOString(),
+    target: S.target,
+    result: S.players.slice().sort((a,b)=>(a.place||99)-(b.place||99))
+                     .map(p=>({name:p.name, total:p.total, place:p.place}))
+  });
+  try{ localStorage.setItem(KEY+'-past', JSON.stringify(list.slice(0,50))); }catch(e){}
+}
+
+function snapshot(){
+  undoStack.push(JSON.stringify(S));
+  if (undoStack.length > 200) undoStack.shift();
+}
+function undo(){
+  const prev = undoStack.pop();
+  if (!prev) return;
+  S = JSON.parse(prev);
+  save(); render();
+}
+
+/* ============================ game logic ============================ */
+function activePlayers(){ return S.players.filter(p=>!p.place); }
+
+function nextIndex(from){
+  const n = S.players.length;
+  for (let k=1;k<=n;k++){
+    const i = (from + k) % n;
+    if (!S.players[i].place) return i;
+  }
+  return -1;
+}
+
+function commitTurn(kind){       // kind: 'normal' | 'bust' | 'win'
+  const p = S.players[S.cur];
+  const gained = S.darts.reduce((a,d)=>a+d.value,0);
+  const bust = (kind === 'bust');
+  if (!bust) p.total += gained;
+  p.history.push({
+    darts: S.darts.map(d=>({short:d.short, value:d.value})),
+    score: bust ? 0 : gained,
+    total: p.total,
+    bust
+  });
+  if (kind === 'win'){
+    p.place = S.players.filter(q=>q.place).length + 1;
+  }
+  S.darts = [];
+  const nxt = nextIndex(S.cur);
+  if (nxt === -1){ S.over = true; archive(); }
+  else S.cur = nxt;
+}
+
+function throwDart(d){
+  if (S.over) return;
+  if (!S.players.length) return;
+  snapshot();
+  S.darts.push(d);
+  const p = S.players[S.cur];
+  const projected = p.total + S.darts.reduce((a,x)=>a+x.value,0);
+
+  if (projected > S.target){
+    commitTurn('bust');
+    toast('BUST — turn voided', 'bust');
+  } else if (projected === S.target){
+    commitTurn('win');
+    toast(`${p.name} finishes on ${S.target}! 🎉`, 'win');
+  } else if (S.darts.length >= 3){
+    commitTurn('normal');
+    toast(d.label);
+  } else {
+    toast(d.label);
+  }
+  save(); render();
+  if (navigator.vibrate) { try{ navigator.vibrate(12); }catch(e){} }
+}
+
+function endTurn(){
+  if (S.over || !S.players.length) return;
+  snapshot();
+  if (S.darts.length === 0){
+    // nothing thrown — just pass the turn without writing a row
+    const nxt = nextIndex(S.cur);
+    if (nxt !== -1) S.cur = nxt;
+  } else {
+    commitTurn('normal');
+  }
+  save(); render();
+}
+
+/* ============================ pointer handling ============================ */
+let aiming = false;
+
+function toSvg(evt){
+  const m = svg.getScreenCTM();
+  if (!m) return {x:0,y:0};
+  const inv = m.inverse();
+  const p = svg.createSVGPoint();
+  p.x = evt.clientX; p.y = evt.clientY;
+  const q = p.matrixTransform(inv);
+  return {x:q.x, y:q.y};
+}
+
+function showMag(x, y){
+  const K = 3.2, MR = 64;
+  // place the loupe above the finger, flip below if too close to the top edge
+  let my = y - 118, mx = x;
+  if (my - MR < -205) my = y + 118;
+  mx = Math.max(-205+MR, Math.min(205-MR, mx));
+  my = Math.max(-205+MR, Math.min(205-MR, my));
+
+  clipC.setAttribute('cx', mx); clipC.setAttribute('cy', my);
+  magBg.setAttribute('cx', mx); magBg.setAttribute('cy', my);
+  magRing.setAttribute('cx', mx); magRing.setAttribute('cy', my);
+  magInner.setAttribute('transform', `translate(${mx - K*x},${my - K*y}) scale(${K})`);
+  magCrossA.setAttribute('x1', mx-13); magCrossA.setAttribute('y1', my);
+  magCrossA.setAttribute('x2', mx+13); magCrossA.setAttribute('y2', my);
+  magCrossB.setAttribute('x1', mx); magCrossB.setAttribute('y1', my-13);
+  magCrossB.setAttribute('x2', mx); magCrossB.setAttribute('y2', my+13);
+
+  const sc = scoreAt(x, y);
+  magLabel.textContent = sc.label;
+  const w = Math.max(84, magLabel.textContent.length * 13 + 22);
+  const ly = my - MR - 20;
+  magLabel.setAttribute('x', mx); magLabel.setAttribute('y', ly);
+  magLabelBg.setAttribute('x', mx - w/2); magLabelBg.setAttribute('y', ly - 17);
+  magLabelBg.setAttribute('width', w); magLabelBg.setAttribute('height', 34);
+
+  liveDot.setAttribute('cx', x); liveDot.setAttribute('cy', y);
+  magG.setAttribute('display', '');
+}
+function hideMag(){ magG.setAttribute('display','none'); }
+
+svg.addEventListener('pointerdown', e=>{
+  if (S.over) return;
+  aiming = true;
+  try{ svg.setPointerCapture(e.pointerId); }catch(err){}
+  const {x,y} = toSvg(e);
+  showMag(x,y);
+  e.preventDefault();
+});
+svg.addEventListener('pointermove', e=>{
+  if (!aiming) return;
+  const {x,y} = toSvg(e);
+  showMag(x,y);
+  e.preventDefault();
+});
+function finish(e){
+  if (!aiming) return;
+  aiming = false;
+  hideMag();
+  const {x,y} = toSvg(e);
+  if (Math.hypot(x,y) > 260) return;              // released well off the board: ignore
+  const sc = scoreAt(x,y);
+  throwDart({short:sc.short, value:sc.value, label:sc.label, x:+x.toFixed(1), y:+y.toFixed(1)});
+}
+svg.addEventListener('pointerup', finish);
+svg.addEventListener('pointercancel', ()=>{ aiming=false; hideMag(); });
+
+/* ============================ rendering ============================ */
+const $ = id => document.getElementById(id);
+
+function renderMarkers(){
+  while (markerG.firstChild) markerG.removeChild(markerG.firstChild);
+  S.darts.forEach((d,i)=>{
+    if (d.x === undefined) return;
+    el('circle', {cx:d.x, cy:d.y, r:6.5, fill:'#fff', 'fill-opacity':.15,
+                  stroke:'#fff', 'stroke-width':2}, markerG);
+    const t = el('text', {x:d.x, y:d.y, fill:'#fff', 'font-size':9, 'font-weight':800,
+                          'text-anchor':'middle','dominant-baseline':'central',
+                          'font-family':'inherit', 'paint-order':'stroke',
+                          stroke:'#000','stroke-width':2}, markerG);
+    t.textContent = i+1;
+  });
+}
+
+function renderTurnbar(){
+  const who = $('whoseTurn'), slots = $('dartSlots');
+  who.innerHTML = ''; slots.innerHTML = '';
+  if (S.over || !S.players.length){
+    who.textContent = S.players.length ? 'Game over' : 'No players';
+  } else {
+    const p = S.players[S.cur];
+    const live = p.total + S.darts.reduce((a,d)=>a+d.value,0);
+    const nm = document.createElement('span'); nm.className='nm'; nm.textContent = p.name;
+    const tg = document.createElement('span'); tg.className='togo';
+    tg.textContent = `needs ${S.target - live}`;
+    who.append(nm, tg);
+  }
+  for (let i=0;i<3;i++){
+    const d = S.darts[i];
+    const s = document.createElement('div');
+    s.className = 'slot' + (d ? ' filled' : '');
+    s.textContent = d ? d.short : '–';
+    if (d && d.short !== '–' && d.short !== 'BULL' && d.short !== '25' && /^[TD]/.test(d.short)){
+      s.innerHTML = `<span class="mult">${d.short[0]}</span>${d.short.slice(1)}`;
+    }
+    slots.appendChild(s);
+  }
+  $('endTurn').disabled = S.over;
+  $('missBtn').disabled = S.over;
+  $('undo').disabled = undoStack.length === 0;
+}
+
+function renderTable(){
+  const t = $('sb');
+  t.innerHTML = '';
+  const maxTurns = Math.max(0, ...S.players.map(p=>p.history.length));
+  const liveRow = (!S.over && S.players[S.cur]) ? S.players[S.cur].history.length : -1;
+  const rows = Math.max(maxTurns, liveRow + 1);
+
+  const thead = document.createElement('thead');
+  const hr = document.createElement('tr');
+  const th0 = document.createElement('th'); th0.className='turncol'; th0.textContent='#';
+  hr.appendChild(th0);
+
+  S.players.forEach((p, idx)=>{
+    const th = document.createElement('th');
+    if (!S.over && idx === S.cur) th.className = 'active';
+    const box = document.createElement('div'); box.className='phead';
+
+    const top = document.createElement('div'); top.className='phead-top';
+    const inp = document.createElement('input');
+    inp.className='pname'; inp.value=p.name; inp.spellcheck=false;
+    inp.addEventListener('change', ()=>{ p.name = inp.value.trim() || ('Player '+(idx+1)); save(); render(); });
+    inp.addEventListener('keydown', e=>{ if (e.key==='Enter') inp.blur(); });
+    top.appendChild(inp);
+    if (S.players.length > 1){
+      const x = document.createElement('button');
+      x.className='px'; x.textContent='×'; x.title='Remove player';
+      x.addEventListener('click', ()=>{
+        if (!confirm(`Remove ${p.name}?`)) return;
+        snapshot();
+        S.players.splice(idx,1);
+        if (S.cur >= S.players.length) S.cur = 0;
+        if (S.players[S.cur] && S.players[S.cur].place){ const n=nextIndex(S.cur); if (n!==-1) S.cur=n; }
+        S.over = S.players.length ? !S.players.some(q=>!q.place) : false;
+        save(); render();
+      });
+      top.appendChild(x);
+    }
+    box.appendChild(top);
+
+    const tot = document.createElement('div'); tot.className='ptotal'; tot.textContent = p.total;
+    box.appendChild(tot);
+    const sub = document.createElement('div');
+    const inHand = (!S.over && idx === S.cur) ? S.darts.reduce((a,d)=>a+d.value,0) : 0;
+    if (p.place){ sub.className='place'; sub.textContent = `🏁 ${ordinal(p.place)}`; }
+    else if (S.darts.length && idx === S.cur && !S.over){
+      sub.className='ptogo';
+      sub.textContent = `+${inHand} → needs ${S.target - p.total - inHand}`;
+    }
+    else { sub.className='ptogo'; sub.textContent = `needs ${S.target - p.total}`; }
+    box.appendChild(sub);
+
+    th.appendChild(box);
+    hr.appendChild(th);
+  });
+  thead.appendChild(hr); t.appendChild(thead);
+
+  const tb = document.createElement('tbody');
+  for (let r=0;r<rows;r++){
+    const tr = document.createElement('tr');
+    const td0 = document.createElement('td'); td0.className='turncol'; td0.textContent = r+1;
+    tr.appendChild(td0);
+
+    S.players.forEach((p, idx)=>{
+      const td = document.createElement('td'); td.className='cell';
+      const h = p.history[r];
+      if (h){
+        const line = document.createElement('div'); line.className='turncell';
+        const sc = document.createElement('span');
+        sc.className = 'tscore ' + (h.bust ? 'bust' : (h.score>0 ? 'pos' : ''));
+        sc.textContent = h.bust ? 'BUST' : '+'+h.score;
+        const run = document.createElement('span'); run.className='trun'; run.textContent = h.total;
+        line.append(sc, run);
+        td.appendChild(line);
+        if (h.darts.length){
+          const dd = document.createElement('div'); dd.className='tdarts';
+          dd.textContent = h.darts.map(d=>d.short).join(' · ');
+          td.appendChild(dd);
+        }
+      } else if (!S.over && !p.place && idx === S.cur && r === p.history.length){
+        tr.classList.add('live');
+        const line = document.createElement('div'); line.className='turncell';
+        const sc = document.createElement('span'); sc.className='tscore pos';
+        const g = S.darts.reduce((a,d)=>a+d.value,0);
+        sc.textContent = S.darts.length ? '+'+g : '';
+        const run = document.createElement('span'); run.className='livedots';
+        run.textContent = '▸ throwing';
+        line.append(sc, run);
+        td.appendChild(line);
+        if (S.darts.length){
+          const dd = document.createElement('div'); dd.className='tdarts';
+          dd.textContent = S.darts.map(d=>d.short).join(' · ');
+          td.appendChild(dd);
+        }
+      }
+      tr.appendChild(td);
+    });
+    tb.appendChild(tr);
+  }
+  t.appendChild(tb);
+  $('turnCount').textContent = maxTurns ? `${maxTurns} turn${maxTurns>1?'s':''}` : '';
+}
+
+function ordinal(n){ return n + (['th','st','nd','rd'][(n%100-20)%10] || ['th','st','nd','rd'][n%100] || 'th'); }
+
+function renderBanner(){
+  const b = $('banner');
+  if (!S.over || !S.players.length){ b.className=''; b.innerHTML=''; return; }
+  const ranked = S.players.slice().sort((a,b2)=>(a.place||99)-(b2.place||99));
+  b.className = 'on';
+  b.innerHTML = `<h2>🏆 Game over — everyone reached ${S.target}</h2><ol>` +
+    ranked.map(p=>`<li><b>${escapeHtml(p.name)}</b> — ${p.history.length} turns</li>`).join('') +
+    `</ol>`;
+}
+
+function renderPast(){
+  const list = pastGames();
+  const box = $('pastGames');
+  if (!list.length){ box.innerHTML = ''; return; }
+  box.innerHTML = '<div style="color:#6d7688;font-weight:700;padding-top:6px">Past games</div>' +
+    list.slice(0,12).map(g=>{
+      const d = new Date(g.date);
+      const when = d.toLocaleDateString(undefined,{month:'short',day:'numeric'}) + ' ' +
+                   d.toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'});
+      return `<div>${when} — to ${g.target}: ` +
+        g.result.map(r=>`${escapeHtml(r.name)} (${r.place?ordinal(r.place):'–'})`).join(', ') + '</div>';
+    }).join('');
+}
+
+function escapeHtml(s){ return String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+let toastTimer=null;
+function toast(msg, kind){
+  const t = $('toast');
+  t.textContent = msg;
+  t.className = 'show' + (kind ? ' '+kind : '');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=>{ t.className=''; }, kind ? 2200 : 1100);
+}
+
+function render(){
+  $('targetSel').value = String(S.target);
+  renderMarkers();
+  renderTurnbar();
+  renderTable();
+  renderBanner();
+  renderPast();
+}
+
+/* ============================ controls ============================ */
+$('missBtn').addEventListener('click', ()=> throwDart({short:'–', value:0, label:'MISS 0'}));
+$('endTurn').addEventListener('click', endTurn);
+$('undo').addEventListener('click', undo);
+
+$('addPlayer').addEventListener('click', ()=>{
+  snapshot();
+  S.players.push(newPlayer('Player ' + (S.players.length+1)));
+  if (S.over){ S.over = false; if (S.players[S.cur] && S.players[S.cur].place) S.cur = S.players.length-1; }
+  save(); render();
+});
+
+$('newGame').addEventListener('click', ()=>{
+  if (S.players.some(p=>p.history.length) && !confirm('Start a new game? Scores are cleared, names are kept.')) return;
+  snapshot();
+  archive();
+  S = freshGame(S.players.map(p=>p.name), S.target);
+  save(); render();
+});
+
+$('targetSel').addEventListener('change', e=>{
+  snapshot();
+  S.target = parseInt(e.target.value, 10);
+  S.players.forEach(p=>{ if (p.total > S.target) p.total = 0; p.place = null; });
+  S.over = false;
+  save(); render();
+});
+
+document.addEventListener('keydown', e=>{
+  if (e.target.tagName === 'INPUT') return;
+  if ((e.key === 'z' && (e.metaKey || e.ctrlKey)) || e.key === 'Backspace'){ e.preventDefault(); undo(); }
+  if (e.key === 'Enter'){ e.preventDefault(); endTurn(); }
+});
+
+load();
+render();
+})();
+</script>
+</body>
+</html>
