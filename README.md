@@ -9,6 +9,16 @@ A tap-the-board darts scorer, built to replace the spiral notebook on the deck a
 Throw a dart, then press the spot on the board where it landed. Three darts and it moves to the
 next player automatically.
 
+The board gets the whole left side of the screen with nothing else in it — no caption, no frame,
+no controls — and scales to fill whatever space is there. Everything else (whose turn, what they
+need, the darts in hand, Miss / End turn, and the scoreboard) lives in the sidebar. The sidebar is
+sized so that **three players are always fully visible without scrolling**; a fourth or fifth
+column scrolls sideways.
+
+**Full screen** in the header hides the browser bars. On a tablet you can also add the page to the
+home screen — there is a web manifest, so it launches with no browser chrome at all, which is the
+only way to get full screen on iPad.
+
 **The board is deliberately not to scale.** A regulation treble ring is 8mm wide, which on a
 tablet works out thinner than a fingertip — unhittable. Every band here is about four times
 thicker than the real thing and the bull is enormous: on a tablet the bull is ~110px across and
@@ -39,8 +49,8 @@ Taken from how the game is actually played there:
 - Targets of 301, 501 and 1000 are in the dropdown if you want a longer game.
 - The scoreboard mirrors the notebook layout: turn score on the left, running total on the right,
   the darts themselves underneath.
-- Everything lives in the browser's local storage — the game survives a reload, and finished
-  games are kept under *Rules & past games*. Nothing is uploaded anywhere.
+- Everything lives in the browser's local storage — the game survives a reload. Nothing is
+  uploaded anywhere.
 
 ## Development
 

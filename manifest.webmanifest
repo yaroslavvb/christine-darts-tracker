@@ -1,0 +1,15 @@
+{
+  "name": "2970 Christine darts",
+  "short_name": "Darts",
+  "description": "Tap-the-board darts scorer for the count-up-to-300 game at 2970 Christine",
+  "start_url": ".",
+  "scope": ".",
+  "display": "fullscreen",
+  "display_override": ["fullscreen", "standalone"],
+  "orientation": "any",
+  "background_color": "#14161a",
+  "theme_color": "#14161a",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}

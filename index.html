@@ -5,7 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>2970 Christine darts</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎯</text></svg>">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon.svg">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Darts">
 <meta name="theme-color" content="#14161a">
 <style>
   :root{
@@ -21,7 +25,7 @@
     --radius:14px;
   }
   *{box-sizing:border-box}
-  html,body{margin:0;padding:0;height:100%}
+  html,body{margin:0;padding:0}
   body{
     background:var(--bg);
     color:var(--text);
@@ -29,6 +33,7 @@
     -webkit-user-select:none;user-select:none;
     touch-action:manipulation;
     -webkit-text-size-adjust:100%;
+    min-height:100dvh;display:flex;flex-direction:column;
   }
   button{font:inherit;color:inherit;cursor:pointer}
 
@@ -40,6 +45,10 @@
   }
   h1{font-size:17px;margin:0;font-weight:650;letter-spacing:.2px;white-space:nowrap}
   h1 .em{color:var(--accent)}
+  /* in full screen the chrome shrinks so the board gets the pixels */
+  body.isFull header{padding:5px 12px}
+  body.isFull h1{font-size:15px}
+  body.isFull .btn,body.isFull select{padding:7px 11px;font-size:14px}
   .spacer{flex:1}
   .btn{
     background:var(--panel2);border:1px solid var(--line);border-radius:10px;
@@ -55,16 +64,27 @@
     border-radius:10px;padding:8px 10px;font-size:14px;font-weight:600;
   }
 
+  /* Board on the left gets every pixel that the scoreboard doesn't need.
+     The sidebar caps at a width that fits three players without sideways scrolling. */
   main{
-    display:grid;gap:14px;padding:14px;
-    grid-template-columns:minmax(320px,58vw) minmax(290px,1fr);
-    align-items:start;
+    flex:1 1 auto;min-height:0;
+    display:grid;gap:12px;padding:12px;
+    grid-template-columns:minmax(0,1fr) minmax(300px,540px);
+    align-items:stretch;
   }
-  @media (max-width:900px){ main{grid-template-columns:1fr} }
-  /* side-by-side layout: keep the board short enough that the totals stay on screen */
-  @media (min-width:901px){ svg#board{max-height:calc(100vh - 300px)} }
+  @media (max-width:900px){
+    main{grid-template-columns:1fr;align-items:start}
+    /* stacked: let the scoreboard scroll inside itself instead of growing the page forever */
+    #sbScroll{max-height:65vh}
+  }
+  @media (min-width:901px){
+    body{height:100dvh;overflow:hidden}
+    #sidebar{min-height:0}
+    #sbScroll{flex:1 1 auto;min-height:0}
+  }
 
   .panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden}
+  #sidebar{display:flex;flex-direction:column}
   .panel-h{
     display:flex;align-items:center;gap:8px;
     padding:9px 12px;border-bottom:1px solid var(--line);
@@ -72,25 +92,32 @@
   }
 
   /* ---------- board ---------- */
-  #boardWrap{padding:6px;display:flex;flex-direction:column;align-items:center}
+  /* Nothing but the board in here — no frame, no caption, no controls. */
+  #boardPane{
+    display:flex;align-items:center;justify-content:center;
+    min-width:0;min-height:0;
+  }
   svg#board{
-    width:100%;max-width:min(88vh,820px);height:auto;display:block;
-    touch-action:none;cursor:crosshair;
+    display:block;touch-action:none;cursor:crosshair;
+    width:100%;height:auto;
   }
-  .hint{color:var(--dim);font-size:13px;text-align:center;margin:6px 2px 2px}
+  @media (min-width:901px){
+    svg#board{height:100%;min-height:0}
+  }
 
-  /* ---------- turn strip ---------- */
+  /* ---------- turn strip (top of the sidebar) ---------- */
   #turnbar{
-    display:flex;align-items:center;gap:10px;flex-wrap:wrap;
-    padding:10px 12px;border-top:1px solid var(--line);background:var(--panel2);
+    display:flex;flex-direction:column;gap:10px;
+    padding:12px;border-bottom:1px solid var(--line);background:var(--panel2);
   }
-  #whoseTurn{font-weight:750;font-size:22px;display:flex;align-items:baseline;gap:10px;min-width:0}
-  #whoseTurn .nm{color:var(--accent);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:38vw}
-  #whoseTurn .togo{color:var(--dim);font-size:18px;font-weight:700}
-  .tb-actions{display:flex;gap:8px;margin-left:auto}
-  .darts{display:flex;gap:6px}
+  #whoseTurn{font-weight:750;font-size:25px;display:flex;align-items:baseline;gap:10px;min-width:0}
+  #whoseTurn .nm{color:var(--accent);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  #whoseTurn .togo{color:var(--dim);font-size:20px;font-weight:700;white-space:nowrap}
+  .tb-actions{display:flex;gap:8px}
+  .tb-actions .btn{flex:1}
+  .darts{display:flex;gap:8px}
   .slot{
-    min-width:76px;height:54px;border-radius:11px;border:1px dashed var(--line);
+    flex:1;min-width:0;height:56px;border-radius:11px;border:1px dashed var(--line);
     display:flex;align-items:center;justify-content:center;
     font-weight:800;font-size:24px;color:var(--dim);background:#191c23;
   }
@@ -98,7 +125,7 @@
   .slot .mult{font-size:16px;color:var(--accent);margin-right:3px}
 
   /* ---------- scoreboard ---------- */
-  #sbScroll{max-height:calc(100vh - 190px);overflow:auto}
+  #sbScroll{overflow:auto}
   table{border-collapse:collapse;width:100%;table-layout:fixed;font-variant-numeric:tabular-nums}
   th,td{border-bottom:1px solid var(--line);border-right:1px solid var(--line);padding:0}
   th:last-child,td:last-child{border-right:0}
@@ -176,12 +203,6 @@
   #banner ol{margin:0;padding-left:20px;color:var(--dim);font-size:14px}
   #banner b{color:var(--text)}
 
-  details.rules{margin:0 14px 18px;color:var(--dim);font-size:13.5px}
-  details.rules summary{cursor:pointer;color:var(--dim);font-weight:600;padding:6px 0}
-  details.rules ul{margin:4px 0 0;padding-left:18px;line-height:1.6}
-  details.rules code{color:var(--accent)}
-  .past{margin-top:6px}
-  .past div{padding:3px 0;border-bottom:1px solid #23272f}
 </style>
 </head>
 <body>
@@ -197,45 +218,30 @@
   </select>
   <button class="btn" id="addPlayer">+ Player</button>
   <button class="btn ghost" id="undo">↶ Undo</button>
+  <button class="btn ghost" id="fullBtn" title="Full screen">⛶ Full screen</button>
   <button class="btn ghost" id="newGame">New game</button>
 </header>
 
 <div id="banner"></div>
 
 <main>
-  <section class="panel">
-    <div id="boardWrap">
-      <svg id="board" viewBox="-228 -228 456 456" aria-label="Dartboard"></svg>
-      <div class="hint">Tap where the dart landed. Hold to check the score before you let go.</div>
-    </div>
+  <section id="boardPane">
+    <svg id="board" viewBox="-228 -228 456 456" aria-label="Dartboard"></svg>
+  </section>
+
+  <section class="panel" id="sidebar">
     <div id="turnbar">
       <div id="whoseTurn"></div>
       <div class="darts" id="dartSlots"></div>
-      <div class="spacer"></div>
       <div class="tb-actions">
         <button class="btn" id="missBtn">Miss (0)</button>
         <button class="btn" id="endTurn">End turn ▸</button>
       </div>
     </div>
-  </section>
-
-  <section class="panel">
     <div class="panel-h"><span>Scoreboard</span><span class="spacer"></span><span id="turnCount"></span></div>
     <div id="sbScroll"><table id="sb"></table></div>
   </section>
 </main>
-
-<details class="rules">
-  <summary>Rules &amp; past games</summary>
-  <ul>
-    <li>Everyone counts <b>up</b> from 0 and must land on <code>300</code> exactly.</li>
-    <li>Three darts per turn, then the next player throws.</li>
-    <li>Outer ring = <b>double</b>, inner ring = <b>triple</b>, green bull = <b>25</b>, red bull = <b>50</b>, outside the wire = <b>0</b>.</li>
-    <li>Go over the target and the whole turn is <b>voided</b> — you go back to the score you started the turn with.</li>
-    <li>Everything is stored on this device only; <b>Undo</b> steps back one dart at a time.</li>
-  </ul>
-  <div class="past" id="pastGames"></div>
-</details>
 
 <div id="toast"></div>
 
@@ -371,21 +377,6 @@ function load(){
 function save(){
   try{ localStorage.setItem(KEY, JSON.stringify({game:S})); }catch(e){}
 }
-function pastGames(){
-  try{ return JSON.parse(localStorage.getItem(KEY+'-past') || '[]'); }catch(e){ return []; }
-}
-function archive(){
-  if (!S.players.some(p=>p.place)) return;
-  const list = pastGames();
-  list.unshift({
-    date: new Date().toISOString(),
-    target: S.target,
-    result: S.players.slice().sort((a,b)=>(a.place||99)-(b.place||99))
-                     .map(p=>({name:p.name, total:p.total, place:p.place}))
-  });
-  try{ localStorage.setItem(KEY+'-past', JSON.stringify(list.slice(0,50))); }catch(e){}
-}
-
 function snapshot(){
   undoStack.push(JSON.stringify(S));
   if (undoStack.length > 200) undoStack.shift();
@@ -425,7 +416,7 @@ function commitTurn(kind){       // kind: 'normal' | 'bust' | 'win'
   }
   S.darts = [];
   const nxt = nextIndex(S.cur);
-  if (nxt === -1){ S.over = true; archive(); }
+  if (nxt === -1) S.over = true;
   else S.cur = nxt;
 }
 
@@ -585,7 +576,9 @@ function renderTable(){
   t.innerHTML = '';
   // Columns share the width evenly, but never squeeze below something readable —
   // past that the scoreboard scrolls sideways instead of mangling names and totals.
-  t.style.minWidth = (44 + S.players.length * 178) + 'px';
+  // 158px x 3 + the turn column fits inside the 540px sidebar, so three players
+  // are always fully visible without scrolling.
+  t.style.minWidth = (44 + S.players.length * 158) + 'px';
   const maxTurns = Math.max(0, ...S.players.map(p=>p.history.length));
   const liveRow = (!S.over && S.players[S.cur]) ? S.players[S.cur].history.length : -1;
   const rows = Math.max(maxTurns, liveRow + 1);
@@ -697,20 +690,6 @@ function renderBanner(){
     `</ol>`;
 }
 
-function renderPast(){
-  const list = pastGames();
-  const box = $('pastGames');
-  if (!list.length){ box.innerHTML = ''; return; }
-  box.innerHTML = '<div style="color:#6d7688;font-weight:700;padding-top:6px">Past games</div>' +
-    list.slice(0,12).map(g=>{
-      const d = new Date(g.date);
-      const when = d.toLocaleDateString(undefined,{month:'short',day:'numeric'}) + ' ' +
-                   d.toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'});
-      return `<div>${when} — to ${g.target}: ` +
-        g.result.map(r=>`${escapeHtml(r.name)} (${r.place?ordinal(r.place):'–'})`).join(', ') + '</div>';
-    }).join('');
-}
-
 function escapeHtml(s){ return String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 
 let toastTimer=null;
@@ -728,10 +707,40 @@ function render(){
   renderTurnbar();
   renderTable();
   renderBanner();
-  renderPast();
 }
 
 /* ============================ controls ============================ */
+/* ---- full screen ---- */
+const fsBtn = $('fullBtn');
+const fsEl  = ()=> document.fullscreenElement || document.webkitFullscreenElement || null;
+const fsCan = ()=> !!(document.documentElement.requestFullscreen ||
+                      document.documentElement.webkitRequestFullscreen);
+const standalone = window.matchMedia('(display-mode: standalone)').matches ||
+                   window.matchMedia('(display-mode: fullscreen)').matches ||
+                   navigator.standalone === true;
+
+function syncFs(){
+  document.body.classList.toggle('isFull', !!fsEl());
+  fsBtn.textContent = fsEl() ? '⤡ Exit full screen' : '⛶ Full screen';
+}
+// iPhone/iPad Safari has no fullscreen API for pages, and some embedded browsers
+// refuse the request — either way, point at the home-screen route instead of doing nothing.
+const fsTip = ()=> toast('Add this page to your home screen for full screen', 'win');
+
+fsBtn.addEventListener('click', ()=>{
+  const el = document.documentElement;
+  if (fsEl()){ (document.exitFullscreen || document.webkitExitFullscreen).call(document); return; }
+  if (!fsCan()){ fsTip(); return; }
+  try{
+    const p = (el.requestFullscreen || el.webkitRequestFullscreen).call(el);
+    if (p && p.catch) p.catch(fsTip);
+  }catch(e){ fsTip(); }
+});
+document.addEventListener('fullscreenchange', syncFs);
+document.addEventListener('webkitfullscreenchange', syncFs);
+if (standalone) fsBtn.style.display = 'none';   // already launched chrome-less
+syncFs();
+
 $('missBtn').addEventListener('click', ()=> throwDart({short:'–', value:0, label:'MISS 0'}));
 $('endTurn').addEventListener('click', endTurn);
 $('undo').addEventListener('click', undo);
@@ -746,7 +755,6 @@ $('addPlayer').addEventListener('click', ()=>{
 $('newGame').addEventListener('click', ()=>{
   if (S.players.some(p=>p.history.length) && !confirm('Start a new game? Scores are cleared, names are kept.')) return;
   snapshot();
-  archive();
   S = freshGame(S.players.map(p=>p.name), S.target);
   save(); render();
 });
