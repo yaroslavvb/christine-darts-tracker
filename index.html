@@ -105,6 +105,35 @@
     svg#board{height:100%;min-height:0}
   }
 
+  /* ---------- keypad (alternative to the board) ---------- */
+  #keypad{display:none;flex-direction:column;gap:8px;width:100%;height:100%;min-height:0}
+  body.mode-keypad #board{display:none}
+  body.mode-keypad #keypad{display:flex}
+  body.mode-keypad #boardPane{align-items:stretch}
+  @media (max-width:900px){ #keypad{min-height:64vh} }
+
+  #kpMult{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;flex:0 0 auto}
+  #kpNums{display:grid;grid-template-columns:repeat(5,1fr);grid-template-rows:repeat(4,1fr);
+          gap:8px;flex:1 1 auto;min-height:0}
+  #kpBull{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;flex:0 0 auto}
+
+  .kp{
+    background:var(--panel2);border:1px solid var(--line);border-radius:12px;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
+    font-weight:800;color:var(--text);line-height:1;padding:6px;min-height:56px;
+  }
+  .kp:active{background:#2e3442}
+  .kp:disabled{opacity:.35;cursor:default}
+  .kp .big{font-size:clamp(20px,3.4vw,34px)}
+  .kp .sub{font-size:clamp(10px,1.3vw,14px);font-weight:700;color:var(--accent);opacity:.9}
+  .kp .lbl{font-size:clamp(11px,1.4vw,15px);font-weight:700;color:var(--dim)}
+  #kpMult .kp{min-height:62px}
+  #kpMult .kp.on{background:var(--accent);border-color:#e0a92e;color:#20160a}
+  #kpMult .kp.on .lbl{color:#4a3a13}
+  #kpBull .kp{min-height:74px}
+  #kpBull .kp.bull .big{color:var(--red)}
+  #kpBull .kp.ring .big{color:var(--green)}
+
   /* ---------- turn strip (top of the sidebar) ---------- */
   #turnbar{
     display:flex;flex-direction:column;gap:10px;
@@ -216,6 +245,7 @@
     <option value="501">to 501</option>
     <option value="1000">to 1000</option>
   </select>
+  <button class="btn" id="modeBtn">⌨ Keypad</button>
   <button class="btn" id="addPlayer">+ Player</button>
   <button class="btn ghost" id="undo">↶ Undo</button>
   <button class="btn ghost" id="fullBtn" title="Full screen">⛶ Full screen</button>
@@ -227,6 +257,11 @@
 <main>
   <section id="boardPane">
     <svg id="board" viewBox="-228 -228 456 456" aria-label="Dartboard"></svg>
+    <div id="keypad" aria-label="Score keypad">
+      <div id="kpMult"></div>
+      <div id="kpNums"></div>
+      <div id="kpBull"></div>
+    </div>
   </section>
 
   <section class="panel" id="sidebar">
@@ -351,12 +386,16 @@ const KEY = 'christine-darts-v1';
 let S = null;
 let undoStack = [];
 
+// who actually plays; a fourth or fifth player falls back to "Player N"
+const DEFAULT_NAMES = ['Володя','Галя','Ярослав'];
+const defaultName = i => DEFAULT_NAMES[i] || ('Player ' + (i+1));
+
 function newPlayer(name){ return {name, total:0, history:[], place:null}; }
 
 function freshGame(names, target){
   return {
     target: target || 300,
-    players: (names && names.length ? names : ['Player 1','Player 2']).map(newPlayer),
+    players: (names && names.length ? names : DEFAULT_NAMES.slice()).map(newPlayer),
     cur: 0,
     darts: [],          // {short, value, x, y}
     over: false,
@@ -364,12 +403,20 @@ function freshGame(names, target){
   };
 }
 
+// A game saved before these names existed, still untouched: adopt them, so the
+// change shows up instead of being hidden behind a stale "Player 1 / Player 2".
+function adoptDefaultNames(){
+  const untouched = S.players.every(p => !p.history.length && p.total === 0 && !p.place &&
+                                         /^Player \d+$/.test(p.name));
+  if (untouched && !S.darts.length) S.players.forEach((p,i)=>{ p.name = defaultName(i); });
+}
+
 function load(){
   try{
     const raw = localStorage.getItem(KEY);
     if (raw){
       const o = JSON.parse(raw);
-      if (o && o.game && Array.isArray(o.game.players)) { S = o.game; return; }
+      if (o && o.game && Array.isArray(o.game.players)) { S = o.game; adoptDefaultNames(); return; }
     }
   }catch(e){}
   S = freshGame();
@@ -596,7 +643,7 @@ function renderTable(){
     const top = document.createElement('div'); top.className='phead-top';
     const inp = document.createElement('input');
     inp.className='pname'; inp.value=p.name; inp.spellcheck=false;
-    inp.addEventListener('change', ()=>{ p.name = inp.value.trim() || ('Player '+(idx+1)); save(); render(); });
+    inp.addEventListener('change', ()=>{ p.name = inp.value.trim() || defaultName(idx); save(); render(); });
     inp.addEventListener('keydown', e=>{ if (e.key==='Enter') inp.blur(); });
     top.appendChild(inp);
     if (S.players.length > 1){
@@ -707,9 +754,90 @@ function render(){
   renderTurnbar();
   renderTable();
   renderBanner();
+  renderKeypad();
 }
 
 /* ============================ controls ============================ */
+/* ============================ keypad ============================ */
+/* Same scoring vocabulary as the board, entered by hand: arm Double or Triple,
+   then press a number. The multiplier drops back to single after each dart. */
+const MODE_KEY = KEY + '-mode';
+let uiMode = (()=>{ try{ return localStorage.getItem(MODE_KEY) === 'keypad' ? 'keypad' : 'board'; }
+                    catch(e){ return 'board'; } })();
+let armed = 1;                      // 1 single, 2 double, 3 treble
+
+const kpMult = $('kpMult'), kpNums = $('kpNums'), kpBull = $('kpBull');
+
+function kpButton(parent, cls){
+  const b = document.createElement('button');
+  b.className = 'kp' + (cls ? ' ' + cls : '');
+  b.type = 'button';
+  parent.appendChild(b);
+  return b;
+}
+function fill(b, big, sub, lbl){
+  b.innerHTML = '';
+  if (lbl){ const d=document.createElement('div'); d.className='lbl'; d.textContent=lbl; b.appendChild(d); }
+  const d=document.createElement('div'); d.className='big'; d.textContent=big; b.appendChild(d);
+  if (sub){ const s=document.createElement('div'); s.className='sub'; s.textContent=sub; b.appendChild(s); }
+}
+
+const multBtns = [1,2,3].map(m=>{
+  const b = kpButton(kpMult);
+  b.addEventListener('click', ()=>{ armed = (armed === m ? 1 : m); renderKeypad(); });
+  return b;
+});
+const numBtns = [];
+for (let n=1;n<=20;n++){
+  const b = kpButton(kpNums);
+  b.addEventListener('click', ()=>{
+    const m = armed;
+    const short = (m===3?'T':m===2?'D':'') + n;
+    throwDart({short, value:n*m, label:`${short} = ${n*m}`});
+    armed = 1; renderKeypad();
+  });
+  numBtns.push(b);
+}
+const ringBtn = kpButton(kpBull, 'ring');
+const bullBtn = kpButton(kpBull, 'bull');
+const kpMissBtn = kpButton(kpBull);
+ringBtn.addEventListener('click', ()=>{ throwDart({short:'25', value:25, label:'25'});      armed=1; renderKeypad(); });
+bullBtn.addEventListener('click', ()=>{ throwDart({short:'BULL', value:50, label:'BULL 50'}); armed=1; renderKeypad(); });
+kpMissBtn.addEventListener('click', ()=>{ throwDart({short:'–', value:0, label:'MISS 0'});   armed=1; renderKeypad(); });
+
+function renderKeypad(){
+  const names = {1:'single', 2:'double', 3:'treble'};
+  multBtns.forEach((b,i)=>{
+    const m = i+1;
+    b.classList.toggle('on', armed === m);
+    fill(b, '×'+m, '', names[m]);
+    b.disabled = S.over;
+  });
+  numBtns.forEach((b,i)=>{
+    const n = i+1;
+    fill(b, n, armed>1 ? '= '+(n*armed) : '', '');
+    b.disabled = S.over;
+  });
+  fill(ringBtn, '25', '', 'outer bull');
+  fill(bullBtn, '50', '', 'bullseye');
+  fill(kpMissBtn, '0', '', 'miss');
+  [ringBtn,bullBtn,kpMissBtn].forEach(b=> b.disabled = S.over);
+}
+
+function applyMode(){
+  document.body.classList.toggle('mode-keypad', uiMode === 'keypad');
+  $('modeBtn').textContent = uiMode === 'keypad' ? '🎯 Board' : '⌨ Keypad';
+  $('modeBtn').title = uiMode === 'keypad' ? 'Switch back to tapping the board'
+                                           : 'Switch to entering scores by number';
+}
+$('modeBtn').addEventListener('click', ()=>{
+  uiMode = uiMode === 'keypad' ? 'board' : 'keypad';
+  armed = 1;
+  try{ localStorage.setItem(MODE_KEY, uiMode); }catch(e){}
+  applyMode(); render();
+});
+applyMode();
+
 /* ---- full screen ---- */
 const fsBtn = $('fullBtn');
 const fsEl  = ()=> document.fullscreenElement || document.webkitFullscreenElement || null;
@@ -747,7 +875,7 @@ $('undo').addEventListener('click', undo);
 
 $('addPlayer').addEventListener('click', ()=>{
   snapshot();
-  S.players.push(newPlayer('Player ' + (S.players.length+1)));
+  S.players.push(newPlayer(defaultName(S.players.length)));
   if (S.over){ S.over = false; if (S.players[S.cur] && S.players[S.cur].place) S.cur = S.players.length-1; }
   save(); render();
 });

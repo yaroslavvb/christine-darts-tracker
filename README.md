@@ -19,6 +19,13 @@ column scrolls sideways.
 home screen — there is a web manifest, so it launches with no browser chrome at all, which is the
 only way to get full screen on iPad.
 
+## Keypad mode
+
+**⌨ Keypad** in the header swaps the board for a number pad, for when typing the score is faster
+than pointing at it: `single / double / treble` across the top, 1–20 in a grid, and `25 / 50 / 0`
+along the bottom. Arm double or treble and every number shows what it would score (`20` → `= 60`),
+then it drops back to single after the dart lands. The choice of board or keypad is remembered.
+
 **The board is deliberately not to scale.** A regulation treble ring is 8mm wide, which on a
 tablet works out thinner than a fingertip — unhittable. Every band here is about four times
 thicker than the real thing and the bull is enormous: on a tablet the bull is ~110px across and
@@ -41,8 +48,8 @@ Taken from how the game is actually played there:
 
 ## Other bits
 
-- Starts with two players; `+ Player` adds a column, the `×` on a column removes one.
-  Tap a name to rename it (Cyrillic is fine).
+- Starts with three players — Володя, Галя, Ярослав. `+ Player` adds a column (a fourth or fifth
+  is named "Player N"), the `×` on a column removes one. Tap a name to rename it.
 - `Undo` steps back one dart at a time, including un-doing a bust or a win.
 - `Miss (0)` for a dart that bounced out or missed the board entirely; `End turn` to pass with
   fewer than three darts.
