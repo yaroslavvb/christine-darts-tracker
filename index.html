@@ -112,10 +112,10 @@
   body.mode-keypad #boardPane{align-items:stretch}
   @media (max-width:900px){ #keypad{min-height:64vh} }
 
-  #kpMult{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;flex:0 0 auto}
   #kpNums{display:grid;grid-template-columns:repeat(5,1fr);grid-template-rows:repeat(4,1fr);
           gap:8px;flex:1 1 auto;min-height:0}
   #kpBull{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;flex:0 0 auto}
+  #kpMult{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;flex:0 0 auto}
 
   .kp{
     background:var(--panel2);border:1px solid var(--line);border-radius:12px;
@@ -125,11 +125,13 @@
   .kp:active{background:#2e3442}
   .kp:disabled{opacity:.35;cursor:default}
   .kp .big{font-size:clamp(20px,3.4vw,34px)}
-  .kp .sub{font-size:clamp(10px,1.3vw,14px);font-weight:700;color:var(--accent);opacity:.9}
+  .kp .sub{font-size:clamp(10px,1.3vw,14px);font-weight:700;color:var(--accent);opacity:.9;
+           max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .kp .lbl{font-size:clamp(11px,1.4vw,15px);font-weight:700;color:var(--dim)}
-  #kpMult .kp{min-height:62px}
-  #kpMult .kp.on{background:var(--accent);border-color:#e0a92e;color:#20160a}
-  #kpMult .kp.on .lbl{color:#4a3a13}
+  /* modifiers, not scores — tinted so they read differently from the number pad */
+  #kpMult .kp{min-height:76px;background:#262114;border-color:#4b4531}
+  #kpMult .kp .big{color:var(--accent);font-size:clamp(22px,3.8vw,38px)}
+  #kpMult .kp:active{background:#332c1a}
   #kpBull .kp{min-height:74px}
   #kpBull .kp.bull .big{color:var(--red)}
   #kpBull .kp.ring .big{color:var(--green)}
@@ -258,9 +260,9 @@
   <section id="boardPane">
     <svg id="board" viewBox="-228 -228 456 456" aria-label="Dartboard"></svg>
     <div id="keypad" aria-label="Score keypad">
-      <div id="kpMult"></div>
       <div id="kpNums"></div>
       <div id="kpBull"></div>
+      <div id="kpMult"></div>
     </div>
   </section>
 
@@ -397,7 +399,8 @@ function freshGame(names, target){
     target: target || 300,
     players: (names && names.length ? names : DEFAULT_NAMES.slice()).map(newPlayer),
     cur: 0,
-    darts: [],          // {short, value, x, y}
+    darts: [],          // {short, value, base, mult, x, y}
+    last: null,         // the dart just entered, so x2/x3 can upgrade it
     over: false,
     started: new Date().toISOString()
   };
@@ -416,7 +419,13 @@ function load(){
     const raw = localStorage.getItem(KEY);
     if (raw){
       const o = JSON.parse(raw);
-      if (o && o.game && Array.isArray(o.game.players)) { S = o.game; adoptDefaultNames(); return; }
+      if (o && o.game && Array.isArray(o.game.players)){
+        S = o.game;
+        // upgrading rewinds through the undo stack, which does not survive a reload
+        S.last = null;
+        adoptDefaultNames();
+        return;
+      }
     }
   }catch(e){}
   S = freshGame();
@@ -472,6 +481,9 @@ function throwDart(d){
   if (!S.players.length) return;
   snapshot();
   S.darts.push(d);
+  // remember it so x2 / x3 can rewind and re-enter it multiplied; `by` is who threw it,
+  // which matters once a third dart has committed the turn and play has moved on
+  S.last = Object.assign({}, d, {by: S.cur});
   const p = S.players[S.cur];
   const projected = p.total + S.darts.reduce((a,x)=>a+x.value,0);
 
@@ -501,8 +513,26 @@ function endTurn(){
   } else {
     commitTurn('normal');
   }
+  S.last = null;              // deliberately ending the turn closes the door on x2 / x3
   save(); render();
 }
+
+// Suffix multiplier: the number has already been entered as a single, so rewind to
+// just before it and re-enter it as a double or treble. Rewinding means bust, an
+// exact finish, and an auto-committed third dart all re-evaluate correctly.
+function applyMult(m){
+  if (S.over) return;
+  const last = S.last;
+  if (!canMultiply(last)) return;
+  if (!undoStack.length) return;
+  S = JSON.parse(undoStack.pop());
+  const short = (m===3 ? 'T' : 'D') + last.base;
+  throwDart(Object.assign({}, last, {
+    short, value: last.base * m, mult: m, label: `${short} = ${last.base * m}`
+  }));
+}
+// only the 20 numbered beds have doubles and trebles — not the bull, not a miss
+function canMultiply(d){ return !!d && d.base >= 1 && d.base <= 20; }
 
 /* ============================ pointer handling ============================ */
 let aiming = false;
@@ -568,7 +598,9 @@ function finish(e){
   const {x,y} = toSvg(e);
   if (Math.hypot(x,y) > 300) return;              // released well off the board: ignore
   const sc = scoreAt(x,y);
-  throwDart({short:sc.short, value:sc.value, label:sc.label, x:+x.toFixed(1), y:+y.toFixed(1)});
+  // sector is 1..20 for the numbered beds, 25 for either bull, 0 for a miss
+  throwDart({short:sc.short, value:sc.value, label:sc.label, base:sc.sector, mult:sc.mult,
+             x:+x.toFixed(1), y:+y.toFixed(1)});
 }
 svg.addEventListener('pointerup', finish);
 svg.addEventListener('pointercancel', ()=>{ aiming=false; hideMag(); });
@@ -759,12 +791,12 @@ function render(){
 
 /* ============================ controls ============================ */
 /* ============================ keypad ============================ */
-/* Same scoring vocabulary as the board, entered by hand: arm Double or Triple,
-   then press a number. The multiplier drops back to single after each dart. */
+/* Same scoring vocabulary as the board, entered by hand. Press the number — that
+   scores the single straight away — then ×2 or ×3 upgrades the dart you just
+   entered. Nothing to arm beforehand, and nothing to remember to turn off. */
 const MODE_KEY = KEY + '-mode';
 let uiMode = (()=>{ try{ return localStorage.getItem(MODE_KEY) === 'keypad' ? 'keypad' : 'board'; }
                     catch(e){ return 'board'; } })();
-let armed = 1;                      // 1 single, 2 double, 3 treble
 
 const kpMult = $('kpMult'), kpNums = $('kpNums'), kpBull = $('kpBull');
 
@@ -782,46 +814,45 @@ function fill(b, big, sub, lbl){
   if (sub){ const s=document.createElement('div'); s.className='sub'; s.textContent=sub; b.appendChild(s); }
 }
 
-const multBtns = [1,2,3].map(m=>{
-  const b = kpButton(kpMult);
-  b.addEventListener('click', ()=>{ armed = (armed === m ? 1 : m); renderKeypad(); });
-  return b;
-});
 const numBtns = [];
 for (let n=1;n<=20;n++){
   const b = kpButton(kpNums);
-  b.addEventListener('click', ()=>{
-    const m = armed;
-    const short = (m===3?'T':m===2?'D':'') + n;
-    throwDart({short, value:n*m, label:`${short} = ${n*m}`});
-    armed = 1; renderKeypad();
-  });
+  b.addEventListener('click', ()=> throwDart({short:String(n), value:n, base:n, mult:1,
+                                              label:`${n}`}));
   numBtns.push(b);
 }
 const ringBtn = kpButton(kpBull, 'ring');
 const bullBtn = kpButton(kpBull, 'bull');
 const kpMissBtn = kpButton(kpBull);
-ringBtn.addEventListener('click', ()=>{ throwDart({short:'25', value:25, label:'25'});      armed=1; renderKeypad(); });
-bullBtn.addEventListener('click', ()=>{ throwDart({short:'BULL', value:50, label:'BULL 50'}); armed=1; renderKeypad(); });
-kpMissBtn.addEventListener('click', ()=>{ throwDart({short:'–', value:0, label:'MISS 0'});   armed=1; renderKeypad(); });
+ringBtn.addEventListener('click',   ()=> throwDart({short:'25',   value:25, base:25, mult:1, label:'25'}));
+bullBtn.addEventListener('click',   ()=> throwDart({short:'BULL', value:50, base:25, mult:2, label:'BULL 50'}));
+kpMissBtn.addEventListener('click', ()=> throwDart({short:'–',    value:0,  base:0,  mult:1, label:'MISS 0'}));
+
+const multBtns = [2,3].map(m=>{
+  const b = kpButton(kpMult);
+  b.addEventListener('click', ()=> applyMult(m));
+  return b;
+});
 
 function renderKeypad(){
-  const names = {1:'single', 2:'double', 3:'treble'};
-  multBtns.forEach((b,i)=>{
-    const m = i+1;
-    b.classList.toggle('on', armed === m);
-    fill(b, '×'+m, '', names[m]);
-    b.disabled = S.over;
-  });
-  numBtns.forEach((b,i)=>{
-    const n = i+1;
-    fill(b, n, armed>1 ? '= '+(n*armed) : '', '');
-    b.disabled = S.over;
-  });
-  fill(ringBtn, '25', '', 'outer bull');
-  fill(bullBtn, '50', '', 'bullseye');
-  fill(kpMissBtn, '0', '', 'miss');
+  numBtns.forEach((b,i)=>{ fill(b, i+1); b.disabled = S.over; });
+  fill(ringBtn,   '25', '', 'outer bull');
+  fill(bullBtn,   '50', '', 'bullseye');
+  fill(kpMissBtn, '0',  '', 'miss');
   [ringBtn,bullBtn,kpMissBtn].forEach(b=> b.disabled = S.over);
+
+  // greyed out until a numbered bed has been entered — never for the bull or a miss
+  const can = !S.over && canMultiply(S.last);
+  // once a third dart has committed the turn, say whose dart x2/x3 would still rewrite
+  const other = can && S.last.by !== S.cur && S.players[S.last.by];
+  multBtns.forEach((b,i)=>{
+    const m = i+2;
+    const sub = !can ? ''
+      : (other ? `${other.name} ${S.last.base} → ${S.last.base*m}`
+               : `${S.last.base} → ${S.last.base*m}`);
+    fill(b, '×'+m, sub, m===3 ? 'treble' : 'double');
+    b.disabled = !can;
+  });
 }
 
 function applyMode(){
@@ -832,7 +863,6 @@ function applyMode(){
 }
 $('modeBtn').addEventListener('click', ()=>{
   uiMode = uiMode === 'keypad' ? 'board' : 'keypad';
-  armed = 1;
   try{ localStorage.setItem(MODE_KEY, uiMode); }catch(e){}
   applyMode(); render();
 });
@@ -869,7 +899,8 @@ document.addEventListener('webkitfullscreenchange', syncFs);
 if (standalone) fsBtn.style.display = 'none';   // already launched chrome-less
 syncFs();
 
-$('missBtn').addEventListener('click', ()=> throwDart({short:'–', value:0, label:'MISS 0'}));
+$('missBtn').addEventListener('click', ()=> throwDart({short:'–', value:0, base:0, mult:1,
+                                                      label:'MISS 0'}));
 $('endTurn').addEventListener('click', endTurn);
 $('undo').addEventListener('click', undo);
 

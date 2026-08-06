@@ -22,9 +22,22 @@ only way to get full screen on iPad.
 ## Keypad mode
 
 **⌨ Keypad** in the header swaps the board for a number pad, for when typing the score is faster
-than pointing at it: `single / double / treble` across the top, 1–20 in a grid, and `25 / 50 / 0`
-along the bottom. Arm double or treble and every number shows what it would score (`20` → `= 60`),
-then it drops back to single after the dart lands. The choice of board or keypad is remembered.
+than pointing at it: 1–20 in a grid, `25 / 50 / 0` under it, and `×2 / ×3` at the bottom.
+
+The multipliers are a **suffix**, not a mode. Press the number — that scores the single straight
+away — and then press `×2` or `×3` to upgrade the dart you just entered. Nothing to arm first and
+nothing to remember to switch off. The buttons show what they would turn the dart into
+(`20 → 60`), and they grey out when there is nothing to multiply — after the bull, after a miss,
+and before the first dart of a turn, since a bull has no double or treble.
+
+Upgrading rewinds the dart and re-enters it, so it behaves correctly even when the dart in
+question already ended the turn: a mistyped third dart can still be corrected, and if the bigger
+value overshoots the target the turn becomes a bust. Once play has moved on, the buttons name
+whose dart they would rewrite (`Володя 20 → 40`). One press of `Undo` removes the whole dart, not
+just the multiplier. After a page reload the multipliers stay greyed out until the next dart,
+because the rewind history does not survive a reload.
+
+The choice of board or keypad is remembered.
 
 **The board is deliberately not to scale.** A regulation treble ring is 8mm wide, which on a
 tablet works out thinner than a fingertip — unhittable. Every band here is about four times
