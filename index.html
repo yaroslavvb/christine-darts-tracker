@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
 <title>2970 Christine darts</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎯</text></svg>">
 <link rel="manifest" href="manifest.webmanifest">
@@ -156,6 +157,8 @@
   .slot .mult{font-size:16px;color:var(--accent);margin-right:3px}
 
   /* ---------- scoreboard ---------- */
+  /* deliberately not smooth: the table is rebuilt on every dart, so an animated
+     reposition would visibly glide from the top each time */
   #sbScroll{overflow:auto}
   table{border-collapse:collapse;width:100%;table-layout:fixed;font-variant-numeric:tabular-nums}
   th,td{border-bottom:1px solid var(--line);border-right:1px solid var(--line);padding:0}
@@ -481,9 +484,13 @@ function throwDart(d){
   if (!S.players.length) return;
   snapshot();
   S.darts.push(d);
-  // remember it so x2 / x3 can rewind and re-enter it multiplied; `by` is who threw it,
-  // which matters once a third dart has committed the turn and play has moved on
-  S.last = Object.assign({}, d, {by: S.cur});
+  // Remember it so x2 / x3 can rewind and re-enter it multiplied. `by` is who threw it,
+  // which matters once a third dart has committed the turn and play has moved on.
+  // `stack` stamps how deep the undo stack was, so the rewind can prove the snapshot on
+  // top still belongs to this dart — anything else pushing a snapshot in between (adding
+  // a player, a new game, changing the target) invalidates the upgrade instead of
+  // rewinding into the wrong state and adding a second dart.
+  S.last = Object.assign({}, d, {by: S.cur, stack: undoStack.length});
   const p = S.players[S.cur];
   const projected = p.total + S.darts.reduce((a,x)=>a+x.value,0);
 
@@ -521,18 +528,22 @@ function endTurn(){
 // just before it and re-enter it as a double or treble. Rewinding means bust, an
 // exact finish, and an auto-committed third dart all re-evaluate correctly.
 function applyMult(m){
-  if (S.over) return;
+  if (!canUpgrade()) return;
   const last = S.last;
-  if (!canMultiply(last)) return;
-  if (!undoStack.length) return;
+  // deliberately not gated on S.over: a game-ending dart is the one you most want to fix,
+  // and rewinding restores the state from before it was won
   S = JSON.parse(undoStack.pop());
   const short = (m===3 ? 'T' : 'D') + last.base;
   throwDart(Object.assign({}, last, {
     short, value: last.base * m, mult: m, label: `${short} = ${last.base * m}`
   }));
 }
-// only the 20 numbered beds have doubles and trebles — not the bull, not a miss
-function canMultiply(d){ return !!d && d.base >= 1 && d.base <= 20; }
+// Only the 20 numbered beds have doubles and trebles — not the bull, not a miss. And the
+// snapshot on top of the undo stack has to still be the one taken for that dart.
+function canUpgrade(){
+  const d = S.last;
+  return !!d && d.base >= 1 && d.base <= 20 && undoStack.length === d.stack;
+}
 
 /* ============================ pointer handling ============================ */
 let aiming = false;
@@ -652,6 +663,10 @@ function renderTurnbar(){
 
 function renderTable(){
   const t = $('sb');
+  // wiping the table collapses the scroll container and the browser clamps it back to the
+  // top, so hold the position and put it back once the rows are rebuilt
+  const scBox = $('sbScroll');
+  const keepTop = scBox ? scBox.scrollTop : 0, keepLeft = scBox ? scBox.scrollLeft : 0;
   t.innerHTML = '';
   // Columns share the width evenly, but never squeeze below something readable —
   // past that the scoreboard scrolls sideways instead of mangling names and totals.
@@ -754,6 +769,7 @@ function renderTable(){
     tb.appendChild(tr);
   }
   t.appendChild(tb);
+  if (scBox){ scBox.scrollTop = keepTop; scBox.scrollLeft = keepLeft; }
   $('turnCount').textContent = maxTurns ? `${maxTurns} turn${maxTurns>1?'s':''}` : '';
 }
 
@@ -767,6 +783,28 @@ function renderBanner(){
   b.innerHTML = `<h2>🏆 Game over — everyone reached ${S.target}</h2><ol>` +
     ranked.map(p=>`<li><b>${escapeHtml(p.name)}</b> — ${p.history.length} turns</li>`).join('') +
     `</ol>`;
+}
+
+// Keep the turn being thrown in view: down as the rows pile up, and sideways to the
+// active player's column when there are more players than fit.
+function scrollLiveIntoView(){
+  const sc = $('sbScroll');
+  if (!sc) return;
+  const scR = sc.getBoundingClientRect();
+  const row = sc.querySelector('tr.live') || sc.querySelector('tbody tr:last-child');
+  if (row){
+    const head = sc.querySelector('thead');
+    const headH = head ? head.getBoundingClientRect().height : 0;
+    const r = row.getBoundingClientRect();
+    if (r.bottom > scR.bottom)            sc.scrollTop += r.bottom - scR.bottom;
+    else if (r.top < scR.top + headH)     sc.scrollTop -= (scR.top + headH) - r.top;
+  }
+  const col = sc.querySelector('thead th.active');
+  if (col){
+    const c = col.getBoundingClientRect();
+    if (c.right > scR.right)      sc.scrollLeft += c.right - scR.right;
+    else if (c.left < scR.left)   sc.scrollLeft -= scR.left - c.left;
+  }
 }
 
 function escapeHtml(s){ return String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
@@ -787,6 +825,7 @@ function render(){
   renderTable();
   renderBanner();
   renderKeypad();
+  scrollLiveIntoView();
 }
 
 /* ============================ controls ============================ */
@@ -842,7 +881,7 @@ function renderKeypad(){
   [ringBtn,bullBtn,kpMissBtn].forEach(b=> b.disabled = S.over);
 
   // greyed out until a numbered bed has been entered — never for the bull or a miss
-  const can = !S.over && canMultiply(S.last);
+  const can = canUpgrade();
   // once a third dart has committed the turn, say whose dart x2/x3 would still rewrite
   const other = can && S.last.by !== S.cur && S.players[S.last.by];
   multBtns.forEach((b,i)=>{

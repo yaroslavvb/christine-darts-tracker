@@ -31,11 +31,21 @@ nothing to remember to switch off. The buttons show what they would turn the dar
 and before the first dart of a turn, since a bull has no double or treble.
 
 Upgrading rewinds the dart and re-enters it, so it behaves correctly even when the dart in
-question already ended the turn: a mistyped third dart can still be corrected, and if the bigger
-value overshoots the target the turn becomes a bust. Once play has moved on, the buttons name
-whose dart they would rewrite (`Володя 20 → 40`). One press of `Undo` removes the whole dart, not
-just the multiplier. After a page reload the multipliers stay greyed out until the next dart,
-because the rewind history does not survive a reload.
+question already ended the turn: a mistyped third dart can still be corrected, if the bigger value
+overshoots the target the turn becomes a bust, and a mis-entered *winning* dart can be taken back
+too — the win is undone along with it. Once play has moved on, the buttons name whose dart they
+would rewrite (`Галя 7 → 21`). One press of `Undo` removes the whole dart, not just the
+multiplier, and undoing a dart re-arms the multipliers for the one before it.
+
+The rewind only fires when the undo snapshot on top of the stack still belongs to that dart, so
+anything else that happens in between — adding a player, a new game, changing the target, or a
+page reload — greys the multipliers out rather than rewinding into the wrong state.
+
+## Scrolling
+
+The scoreboard follows the turn being thrown: down as the rows pile up, and sideways to the active
+player's column when there are more players than fit across. It holds its position when the table
+is rebuilt, so nothing jumps between darts.
 
 The choice of board or keypad is remembered.
 
