@@ -55,7 +55,11 @@
     background:var(--panel2);border:1px solid var(--line);border-radius:10px;
     padding:11px 15px;font-size:15px;font-weight:600;white-space:nowrap;
   }
-  .btn:active{transform:translateY(1px)}
+  .btn{transition:transform .06s ease,background .08s ease,box-shadow .08s ease}
+  .btn:active,.btn.hit{
+    background:var(--accent);color:#20160a;border-color:#e0a92e;transform:scale(.95);
+    box-shadow:0 0 0 4px rgba(255,194,71,.3);
+  }
   .btn:disabled{opacity:.4;cursor:default}
   .btn.primary{background:var(--accent);color:#20160a;border-color:#e0a92e}
   .btn.ghost{background:transparent}
@@ -107,24 +111,34 @@
   }
 
   /* ---------- keypad (alternative to the board) ---------- */
-  #keypad{display:none;flex-direction:column;gap:8px;width:100%;height:100%;min-height:0}
+  #keypad{display:none;flex-direction:column;gap:5px;width:100%;height:100%;min-height:0}
   body.mode-keypad #board{display:none}
   body.mode-keypad #keypad{display:flex}
   body.mode-keypad #boardPane{align-items:stretch}
   @media (max-width:900px){ #keypad{min-height:64vh} }
 
+  /* small gaps: every pixel between buttons is a pixel that swallows a press */
   #kpNums{display:grid;grid-template-columns:repeat(5,1fr);grid-template-rows:repeat(4,1fr);
-          gap:8px;flex:1 1 auto;min-height:0}
-  #kpBull{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;flex:0 0 auto}
-  #kpMult{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;flex:0 0 auto}
+          gap:5px;flex:1 1 auto;min-height:0}
+  #kpBull{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;flex:0 0 auto}
+  #kpMult{display:grid;grid-template-columns:repeat(2,1fr);gap:5px;flex:0 0 auto}
 
   .kp{
     background:var(--panel2);border:1px solid var(--line);border-radius:12px;
     display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
     font-weight:800;color:var(--text);line-height:1;padding:6px;min-height:56px;
+    touch-action:none;                 /* no tap delay, no gesture stealing the press */
+    transition:transform .05s ease,background .07s ease,box-shadow .07s ease;
   }
-  .kp:active{background:#2e3442}
+  /* unmistakable: the whole button goes accent and punches in for ~170ms */
+  .kp:active,.kp.hit{
+    background:var(--accent);border-color:#ffd77a;color:#20160a;transform:scale(.93);
+    box-shadow:0 0 0 5px rgba(255,194,71,.4);
+  }
+  .kp.hit .big,.kp.hit .lbl,.kp.hit .sub,
+  .kp:active .big,.kp:active .lbl,.kp:active .sub{color:#20160a}
   .kp:disabled{opacity:.35;cursor:default}
+  .kp:disabled.hit{background:var(--panel2);transform:none;box-shadow:none}
   .kp .big{font-size:clamp(20px,3.4vw,34px)}
   .kp .sub{font-size:clamp(10px,1.3vw,14px);font-weight:700;color:var(--accent);opacity:.9;
            max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -696,7 +710,7 @@ function renderTable(){
     if (S.players.length > 1){
       const x = document.createElement('button');
       x.className='px'; x.textContent='×'; x.title='Remove player';
-      x.addEventListener('click', ()=>{
+      onPress(x, ()=>{
         if (!confirm(`Remove ${p.name}?`)) return;
         snapshot();
         S.players.splice(idx,1);
@@ -829,6 +843,32 @@ function render(){
 }
 
 /* ============================ controls ============================ */
+/* ============================ press handling ============================ */
+/* A `click` only fires if the press and the release land on the same element without
+   much movement. Stabbing at a tablet drags a few pixels constantly, so clicks get
+   cancelled and the press silently does nothing. Everything here fires on pointerdown
+   instead: the moment your finger lands, the action is committed and the button flashes,
+   and it stays committed however far the finger slides afterwards. */
+function flash(el){
+  clearTimeout(el._hitT);
+  el.classList.add('hit');
+  el._hitT = setTimeout(()=>el.classList.remove('hit'), 170);
+}
+function onPress(el, fn){
+  if (!el) return;
+  el.addEventListener('pointerdown', e=>{
+    if (e.pointerType === 'mouse' && e.button !== 0) return;   // ignore right/middle
+    e.preventDefault();          // also suppresses the follow-up click, so no double fire
+    if (el.disabled) return;
+    flash(el);
+    fn();
+  });
+  // keyboard and assistive activation arrive as a click with no pointer detail
+  el.addEventListener('click', e=>{
+    if (e.detail === 0 && !el.disabled){ flash(el); fn(); }
+  });
+}
+
 /* ============================ keypad ============================ */
 /* Same scoring vocabulary as the board, entered by hand. Press the number — that
    scores the single straight away — then ×2 or ×3 upgrades the dart you just
@@ -856,20 +896,19 @@ function fill(b, big, sub, lbl){
 const numBtns = [];
 for (let n=1;n<=20;n++){
   const b = kpButton(kpNums);
-  b.addEventListener('click', ()=> throwDart({short:String(n), value:n, base:n, mult:1,
-                                              label:`${n}`}));
+  onPress(b, ()=> throwDart({short:String(n), value:n, base:n, mult:1, label:`${n}`}));
   numBtns.push(b);
 }
 const ringBtn = kpButton(kpBull, 'ring');
 const bullBtn = kpButton(kpBull, 'bull');
 const kpMissBtn = kpButton(kpBull);
-ringBtn.addEventListener('click',   ()=> throwDart({short:'25',   value:25, base:25, mult:1, label:'25'}));
-bullBtn.addEventListener('click',   ()=> throwDart({short:'BULL', value:50, base:25, mult:2, label:'BULL 50'}));
-kpMissBtn.addEventListener('click', ()=> throwDart({short:'–',    value:0,  base:0,  mult:1, label:'MISS 0'}));
+onPress(ringBtn,   ()=> throwDart({short:'25',   value:25, base:25, mult:1, label:'25'}));
+onPress(bullBtn,   ()=> throwDart({short:'BULL', value:50, base:25, mult:2, label:'BULL 50'}));
+onPress(kpMissBtn, ()=> throwDart({short:'–',    value:0,  base:0,  mult:1, label:'MISS 0'}));
 
 const multBtns = [2,3].map(m=>{
   const b = kpButton(kpMult);
-  b.addEventListener('click', ()=> applyMult(m));
+  onPress(b, ()=> applyMult(m));
   return b;
 });
 
@@ -900,7 +939,7 @@ function applyMode(){
   $('modeBtn').title = uiMode === 'keypad' ? 'Switch back to tapping the board'
                                            : 'Switch to entering scores by number';
 }
-$('modeBtn').addEventListener('click', ()=>{
+onPress($('modeBtn'), ()=>{
   uiMode = uiMode === 'keypad' ? 'board' : 'keypad';
   try{ localStorage.setItem(MODE_KEY, uiMode); }catch(e){}
   applyMode(); render();
@@ -924,7 +963,7 @@ function syncFs(){
 // refuse the request — either way, point at the home-screen route instead of doing nothing.
 const fsTip = ()=> toast('Add this page to your home screen for full screen', 'win');
 
-fsBtn.addEventListener('click', ()=>{
+onPress(fsBtn, ()=>{
   const el = document.documentElement;
   if (fsEl()){ (document.exitFullscreen || document.webkitExitFullscreen).call(document); return; }
   if (!fsCan()){ fsTip(); return; }
@@ -938,24 +977,24 @@ document.addEventListener('webkitfullscreenchange', syncFs);
 if (standalone) fsBtn.style.display = 'none';   // already launched chrome-less
 syncFs();
 
-$('missBtn').addEventListener('click', ()=> throwDart({short:'–', value:0, base:0, mult:1,
-                                                      label:'MISS 0'}));
-$('endTurn').addEventListener('click', endTurn);
-$('undo').addEventListener('click', undo);
+onPress($('missBtn'), ()=> throwDart({short:'–', value:0, base:0, mult:1, label:'MISS 0'}));
+onPress($('endTurn'), endTurn);
+onPress($('undo'), undo);
 
-$('addPlayer').addEventListener('click', ()=>{
+onPress($('addPlayer'), ()=>{
   snapshot();
   S.players.push(newPlayer(defaultName(S.players.length)));
   if (S.over){ S.over = false; if (S.players[S.cur] && S.players[S.cur].place) S.cur = S.players.length-1; }
   save(); render();
 });
 
-$('newGame').addEventListener('click', ()=>{
+onPress($('newGame'), ()=>{
   if (S.players.some(p=>p.history.length) && !confirm('Start a new game? Scores are cleared, names are kept.')) return;
   snapshot();
   S = freshGame(S.players.map(p=>p.name), S.target);
   save(); render();
 });
+
 
 $('targetSel').addEventListener('change', e=>{
   snapshot();

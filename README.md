@@ -41,6 +41,19 @@ The rewind only fires when the undo snapshot on top of the stack still belongs t
 anything else that happens in between — adding a player, a new game, changing the target, or a
 page reload — greys the multipliers out rather than rewinding into the wrong state.
 
+## Presses
+
+Every button fires on **pointerdown**, not on click. A click only counts if the press and the
+release land on the same element without much movement, so stabbing at a tablet — which drags a
+few pixels every time — silently cancels presses. Firing on press means the moment your finger
+lands the score is in, and it stays in however far the finger slides afterwards. The button flashes
+solid amber and punches in for about 170ms so a registered press is obvious even out of the corner
+of your eye. Gaps between keypad buttons are kept to 5px, since every pixel of gap is a pixel that
+swallows a press.
+
+The board is the deliberate exception: there a drag *is* the aiming gesture, so the dart lands
+where you release, not where you first touched down.
+
 ## Scrolling
 
 The scoreboard follows the turn being thrown: down as the rows pile up, and sideways to the active
