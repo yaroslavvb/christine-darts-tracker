@@ -54,6 +54,20 @@ swallows a press.
 The board is the deliberate exception: there a drag *is* the aiming gesture, so the dart lands
 where you release, not where you first touched down.
 
+Every press also makes a short click and a light vibration. A **bust** gets a falling two-tone and
+a double buzz, and a **finish** gets a rising three-note chime — so you know what happened without
+reading the screen. Pressing a greyed-out key gives a low thud rather than nothing at all. The
+tones are synthesised in the browser, so there are no sound files to load. `🔊` in the header
+silences both sound and vibration and remembers the choice.
+
+Vibration is Android/Chrome only — iPad Safari has no web haptics API, which is exactly why the
+sound carries the load there.
+
+Nothing in the keypad changes size when you press it. The `×2`/`×3` buttons keep their preview
+line reserved even when it is empty, and the bull and multiplier rows have fixed heights, because
+otherwise gaining that line grows the row, the number grid shrinks to compensate, and the whole
+keypad shifts a couple of pixels under your finger mid-tap.
+
 ## Scrolling
 
 The scoreboard follows the turn being thrown: down as the rows pile up, and sideways to the active

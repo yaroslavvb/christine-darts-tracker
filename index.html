@@ -144,10 +144,13 @@
            max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .kp .lbl{font-size:clamp(11px,1.4vw,15px);font-weight:700;color:var(--dim)}
   /* modifiers, not scores — tinted so they read differently from the number pad */
-  #kpMult .kp{min-height:76px;background:#262114;border-color:#4b4531}
+  #kpMult .kp{background:#262114;border-color:#4b4531}
   #kpMult .kp .big{color:var(--accent);font-size:clamp(22px,3.8vw,38px)}
   #kpMult .kp:active{background:#332c1a}
-  #kpBull .kp{min-height:74px}
+  /* fixed heights, not min-heights: nothing inside these rows may ever change the row
+     height, or the flex:1 number grid resizes and the keypad shifts under your finger */
+  #kpBull .kp{height:74px;min-height:0;overflow:hidden}
+  #kpMult .kp{height:84px;min-height:0;overflow:hidden}
   #kpBull .kp.bull .big{color:var(--red)}
   #kpBull .kp.ring .big{color:var(--green)}
 
@@ -267,6 +270,7 @@
   <button class="btn" id="modeBtn">⌨ Keypad</button>
   <button class="btn" id="addPlayer">+ Player</button>
   <button class="btn ghost" id="undo">↶ Undo</button>
+  <button class="btn ghost" id="soundBtn" title="Sound and vibration">🔊</button>
   <button class="btn ghost" id="fullBtn" title="Full screen">⛶ Full screen</button>
   <button class="btn ghost" id="newGame">New game</button>
 </header>
@@ -511,9 +515,11 @@ function throwDart(d){
   if (projected > S.target){
     commitTurn('bust');
     toast('BUST — turn voided', 'bust');
+    fx.bust();
   } else if (projected === S.target){
     commitTurn('win');
     toast(`${p.name} finishes on ${S.target}! 🎉`, 'win');
+    fx.win();
   } else if (S.darts.length >= 3){
     commitTurn('normal');
     toast(d.label);
@@ -521,7 +527,6 @@ function throwDart(d){
     toast(d.label);
   }
   save(); render();
-  if (navigator.vibrate) { try{ navigator.vibrate(12); }catch(e){} }
 }
 
 function endTurn(){
@@ -623,6 +628,7 @@ function finish(e){
   const {x,y} = toSvg(e);
   if (Math.hypot(x,y) > 300) return;              // released well off the board: ignore
   const sc = scoreAt(x,y);
+  fx.tick();                 // board taps bypass onPress, so cue them here
   // sector is 1..20 for the numbered beds, 25 for either bull, 0 for a miss
   throwDart({short:sc.short, value:sc.value, label:sc.label, base:sc.sector, mult:sc.mult,
              x:+x.toFixed(1), y:+y.toFixed(1)});
@@ -843,6 +849,52 @@ function render(){
 }
 
 /* ============================ controls ============================ */
+/* ============================ feedback ============================ */
+/* Sound and vibration on every press, so a registered press is obvious without looking.
+   Vibration is Android/Chrome only — iPad Safari has no web haptics at all, which is
+   exactly why the sound matters there. Tones are synthesised, so there are no assets. */
+const SND_KEY = KEY + '-sound';
+let soundOn = (()=>{ try{ return localStorage.getItem(SND_KEY) !== 'off'; }catch(e){ return true; } })();
+let actx = null;
+
+function audioCtx(){
+  if (!soundOn) return null;
+  try{
+    if (!actx){
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return null;
+      actx = new AC();
+    }
+    // iOS starts the context suspended; a press is a user gesture, so this is the moment
+    if (actx.state === 'suspended') actx.resume();
+    return actx;
+  }catch(e){ return null; }
+}
+function tone(freq, dur, type, gain, delay){
+  const a = audioCtx(); if (!a) return;
+  const t0 = a.currentTime + (delay || 0);
+  const osc = a.createOscillator(), g = a.createGain();
+  osc.type = type || 'square';
+  osc.frequency.setValueAtTime(freq, t0);
+  g.gain.setValueAtTime(0.0001, t0);
+  g.gain.linearRampToValueAtTime(gain == null ? 0.16 : gain, t0 + 0.004);
+  g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+  osc.connect(g); g.connect(a.destination);
+  osc.start(t0); osc.stop(t0 + dur + 0.02);
+}
+function buzz(pattern){
+  if (!soundOn) return;
+  try{ if (navigator.vibrate) navigator.vibrate(pattern); }catch(e){}
+}
+const fx = {
+  tick(){ tone(1200, 0.03, 'square', 0.14); buzz(12); },                 // press registered
+  nope(){ tone(150, 0.07, 'sine', 0.12); },                              // pressed something dead
+  bust(){ tone(330, 0.10, 'sawtooth', 0.18);
+          tone(190, 0.18, 'sawtooth', 0.18, 0.09); buzz([0,45,55,45]); },
+  win(){ [880,1175,1568].forEach((f,i)=> tone(f, 0.12, 'triangle', 0.17, i*0.085));
+         buzz([0,25,45,25,45,80]); }
+};
+
 /* ============================ press handling ============================ */
 /* A `click` only fires if the press and the release land on the same element without
    much movement. Stabbing at a tablet drags a few pixels constantly, so clicks get
@@ -859,13 +911,13 @@ function onPress(el, fn){
   el.addEventListener('pointerdown', e=>{
     if (e.pointerType === 'mouse' && e.button !== 0) return;   // ignore right/middle
     e.preventDefault();          // also suppresses the follow-up click, so no double fire
-    if (el.disabled) return;
-    flash(el);
+    if (el.disabled){ fx.nope(); return; }   // a dead key should still say something
+    flash(el); fx.tick();
     fn();
   });
   // keyboard and assistive activation arrive as a click with no pointer detail
   el.addEventListener('click', e=>{
-    if (e.detail === 0 && !el.disabled){ flash(el); fn(); }
+    if (e.detail === 0 && !el.disabled){ flash(el); fx.tick(); fn(); }
   });
 }
 
@@ -886,11 +938,19 @@ function kpButton(parent, cls){
   parent.appendChild(b);
   return b;
 }
-function fill(b, big, sub, lbl){
+// `reserveSub` keeps the third line's box even when there is nothing to put in it. Without
+// it, entering a number gives x2/x3 a sub-line, the row grows, the number grid shrinks to
+// compensate, and the whole keypad jumps a couple of pixels under your finger.
+function fill(b, big, sub, lbl, reserveSub){
   b.innerHTML = '';
   if (lbl){ const d=document.createElement('div'); d.className='lbl'; d.textContent=lbl; b.appendChild(d); }
   const d=document.createElement('div'); d.className='big'; d.textContent=big; b.appendChild(d);
-  if (sub){ const s=document.createElement('div'); s.className='sub'; s.textContent=sub; b.appendChild(s); }
+  if (sub || reserveSub){
+    const s=document.createElement('div'); s.className='sub';
+    s.textContent = sub || ' ';
+    if (!sub) s.style.visibility = 'hidden';
+    b.appendChild(s);
+  }
 }
 
 const numBtns = [];
@@ -928,7 +988,7 @@ function renderKeypad(){
     const sub = !can ? ''
       : (other ? `${other.name} ${S.last.base} → ${S.last.base*m}`
                : `${S.last.base} → ${S.last.base*m}`);
-    fill(b, '×'+m, sub, m===3 ? 'treble' : 'double');
+    fill(b, '×'+m, sub, m===3 ? 'treble' : 'double', true);   // reserve the line either way
     b.disabled = !can;
   });
 }
@@ -945,6 +1005,24 @@ onPress($('modeBtn'), ()=>{
   applyMode(); render();
 });
 applyMode();
+
+/* ---- sound / vibration toggle ---- */
+const soundBtn = $('soundBtn');
+function syncSound(){
+  soundBtn.textContent = soundOn ? '🔊' : '🔇';
+  soundBtn.title = soundOn ? 'Sound and vibration on — tap to silence'
+                           : 'Silent — tap for sound and vibration';
+}
+// not via onPress: that would play a tick with the sound it is about to turn off
+soundBtn.addEventListener('pointerdown', e=>{
+  if (e.pointerType === 'mouse' && e.button !== 0) return;
+  e.preventDefault();
+  soundOn = !soundOn;
+  try{ localStorage.setItem(SND_KEY, soundOn ? 'on' : 'off'); }catch(err){}
+  flash(soundBtn); syncSound();
+  if (soundOn) fx.tick();          // confirm it is back on
+});
+syncSound();
 
 /* ---- full screen ---- */
 const fsBtn = $('fullBtn');
